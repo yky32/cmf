@@ -39,16 +39,16 @@ export class KafkaService {
   async initialize(): Promise<void> {
     try {
       await this.producer.connect();
-      console.log("✅ Kafka producer connected");
+      console.log("✅ >>Kafka producer connected");
 
       await this.consumer.connect();
-      console.log("✅ Kafka consumer connected");
+      console.log("✅ >>Kafka consumer connected");
 
       await this.consumer.subscribe({ 
         topic: this.config.topic, 
         fromBeginning: false 
       });
-      console.log(`✅ Subscribed to topic: ${this.config.topic}`);
+      console.log(`✅ >>Subscribed to topic: ${this.config.topic}`);
 
       await this.consumer.run({
         eachMessage: async ({ message }) => {
@@ -101,7 +101,7 @@ export class KafkaService {
     try {
       await this.producer.disconnect();
       await this.consumer.disconnect();
-      console.log("✅ Kafka disconnected");
+      console.log("✅ >>Kafka disconnected");
     } catch (error) {
       console.error("Error disconnecting from Kafka:", error);
     }

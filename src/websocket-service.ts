@@ -69,7 +69,7 @@ export class WebSocketService {
       const clientId = `client-${this.clientCounter++}`;
       this.clients.set(clientId, ws);
 
-      console.log(`✅ ${clientId} connected`);
+      console.log(`✅ >>${clientId} connected`);
       
       // Send welcome message
       this.sendToClient(ws, { type: "welcome", clientId });
@@ -238,7 +238,7 @@ export class WebSocketService {
       this.httpServer.close();
     }
     
-    console.log("✅ WebSocket and HTTP servers closed");
+    console.log("✅ >>WebSocket and HTTP servers closed");
   }
 
 }
