@@ -1,4 +1,5 @@
 import { WebSocketServer, WebSocket } from "ws";
+import { createServer } from "http";
 import { KafkaService, KafkaMessage } from "./kafka-service";
 
 export interface WebSocketMessage {
@@ -15,6 +16,7 @@ export interface WebSocketServiceConfig {
 
 export class WebSocketService {
   private wss: WebSocketServer;
+  private httpServer: any;
   private clients: Map<string, WebSocket> = new Map();
   private clientCounter = 1;
   private config: WebSocketServiceConfig;
@@ -24,9 +26,30 @@ export class WebSocketService {
     this.config = config;
     this.kafkaService = config.kafkaService;
     
-    this.wss = new WebSocketServer({ port: config.port });
+    // Create HTTP server for health checks
+    this.httpServer = createServer((req, res) => {
+      if (req.url === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          status: 'healthy', 
+          timestamp: new Date().toISOString(),
+          clients: this.clients.size,
+          kafka: this.kafkaService ? 'connected' : 'disconnected'
+        }));
+      } else {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
+      }
+    });
+    
+    this.wss = new WebSocketServer({ server: this.httpServer });
     this.setupKafkaMessageHandler();
     this.setupWebSocketHandlers();
+    
+    // Start the server
+    this.httpServer.listen(config.port, () => {
+      console.log(`🌐 HTTP server listening on port ${config.port}`);
+    });
   }
 
   private setupKafkaMessageHandler(): void {
@@ -209,7 +232,13 @@ export class WebSocketService {
     
     // Close WebSocket server
     this.wss.close();
-    console.log("✅ WebSocket server closed");
+    
+    // Close HTTP server
+    if (this.httpServer) {
+      this.httpServer.close();
+    }
+    
+    console.log("✅ WebSocket and HTTP servers closed");
   }
 
 }
