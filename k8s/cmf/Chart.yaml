@@ -1,0 +1,17 @@
+apiVersion: v2
+name: cmf
+description: A Helm chart for CMF (WebSocket Kafka Server)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - websocket
+  - kafka
+  - real-time
+  - cmf
+home: https://github.com/your-org/cmf
+sources:
+  - https://github.com/your-org/cmf
+maintainers:
+  - name: Your Name
+    email: your.email@example.com
