@@ -302,7 +302,7 @@
         let toastCounter = 0;
         
         function connect() {
-            ws = new WebSocket('ws://localhost:3000');
+            ws = new WebSocket('ws://localhost:8088');
             
             ws.onopen = function() {
                 updateStatus('Connected', 'connected');
@@ -410,11 +410,11 @@
                 case 'direct':
                     addMessage(`💬 Direct from ${data.from}: ${data.message}`, 'direct');
                     break;
-                case 'kick':
-                    addMessage(`⚠️ ${data.message}`, 'error');
-                    break;
                 case 'error':
                     addMessage(`❌ Error: ${data.message}`, 'error');
+                    break;
+                case 'kicked':
+                    addMessage(`⚠️ ${data.message}`, 'error');
                     break;
                 case 'client-list':
                     // Update client list from server
@@ -437,6 +437,9 @@
                         updateClientList();
                         addMessage(`👋 Client ${data.clientId} disconnected`, 'error');
                     }
+                    break;
+                case 'message':
+                    addMessage(`📨 Message: ${data.message || JSON.stringify(data)}`, 'message');
                     break;
                 default:
                     addMessage(`📨 Unknown message type: ${JSON.stringify(data)}`, 'message');
@@ -583,7 +586,7 @@
                 case 'message': return 'New Message';
                 case 'welcome': return 'Connection';
                 case 'error': return 'Error';
-                case 'kick': return 'Client Kicked';
+                case 'kicked': return 'Client Kicked';
                 default: return 'Notification';
             }
         }
@@ -593,7 +596,7 @@
                 case 'message': return '💬';
                 case 'welcome': return '✅';
                 case 'error': return '❌';
-                case 'kick': return '👢';
+                case 'kicked': return '👢';
                 default: return '📢';
             }
         }

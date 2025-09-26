@@ -33,7 +33,7 @@ export class WebSocketService {
     this.kafkaService.onMessage((kafkaMessage: KafkaMessage) => {
       // Broadcast Kafka message to all connected WebSocket clients
       this.broadcastToAll({
-        type: "message",
+        type: "kafka",
         from: kafkaMessage.from,
         message: kafkaMessage.message,
         timestamp: kafkaMessage.timestamp || Date.now()
@@ -131,7 +131,7 @@ export class WebSocketService {
     const targetClient = this.clients.get(targetId);
     if (targetClient && targetClient.readyState === WebSocket.OPEN) {
       this.sendToClient(targetClient, {
-        type: "message",
+        type: "direct",
         from,
         message,
         timestamp: Date.now()
@@ -195,9 +195,6 @@ export class WebSocketService {
     this.broadcastToAll({ type: "client-disconnected", clientId });
   }
 
-  getConnectedClients(): string[] {
-    return Array.from(this.clients.keys());
-  }
 
   getClientCount(): number {
     return this.clients.size;
@@ -215,7 +212,4 @@ export class WebSocketService {
     console.log("✅ WebSocket server closed");
   }
 
-  getConfig(): WebSocketServiceConfig {
-    return { ...this.config };
-  }
 }

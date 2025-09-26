@@ -96,12 +96,6 @@ export class KafkaService {
     this.messageHandlers.push(handler);
   }
 
-  removeMessageHandler(handler: (message: KafkaMessage) => void): void {
-    const index = this.messageHandlers.indexOf(handler);
-    if (index > -1) {
-      this.messageHandlers.splice(index, 1);
-    }
-  }
 
   async disconnect(): Promise<void> {
     try {
@@ -113,11 +107,4 @@ export class KafkaService {
     }
   }
 
-  getConfig(): KafkaServiceConfig {
-    return { ...this.config };
-  }
-
-  isConnected(): boolean {
-    return !!(this.producer && this.consumer);
-  }
 }

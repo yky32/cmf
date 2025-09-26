@@ -88,7 +88,7 @@ podAnnotations:
   environment: "production"
   version: "1.0.0"
   prometheus.io/scrape: "true"
-  prometheus.io/port: "3000"
+  prometheus.io/port: "8088"
   prometheus.io/path: "/metrics"
 
 # Production pod labels

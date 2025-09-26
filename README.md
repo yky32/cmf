@@ -5,7 +5,7 @@ CMF is a real-time messaging server that combines WebSocket connections with Apa
 ## 🚀 Features
 
 ### Core Functionality
-- **WebSocket Server**: Real-time bidirectional communication on port 3000
+- **WebSocket Server**: Real-time bidirectional communication on port 8088
 - **Kafka Integration**: Scalable message streaming and broadcasting
 - **Client Management**: Track and manage connected clients with unique IDs
 - **Auto-reload Development**: Hot reloading with ts-node-dev for rapid development
@@ -60,13 +60,13 @@ npm run build
 npm start
 ```
 
-The server will start on port **3000** by default.
+The server will start on port **8088** by default.
 
 ## 🎯 Usage
 
 ### WebSocket Server
 
-The server runs on `ws://localhost:3000` and supports the following message types:
+The server runs on `ws://localhost:8088` and supports the following message types:
 
 #### Client → Server Messages
 
@@ -150,7 +150,7 @@ You can also test using `wscat`:
 npm install -g wscat
 
 # Connect to server
-wscat -c ws://localhost:3000
+wscat -c ws://localhost:8088
 
 # Send a broadcast message
 {"type": "broadcast-all", "message": "Hello from command line!"}
@@ -162,7 +162,7 @@ wscat -c ws://localhost:3000
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3000` | WebSocket server port |
+| `PORT` | `8088` | WebSocket server port |
 | `KAFKA_BROKER` | `localhost:9092` | Kafka broker address |
 | `KAFKA_TOPIC` | `ws-messages` | Kafka topic for messages |
 
@@ -181,7 +181,7 @@ PORT=4000 KAFKA_BROKER=localhost:9092 KAFKA_TOPIC=my-topic npm run dev
 docker build -t cmf .
 
 # Run the container
-docker run -p 3000:3000 \
+docker run -p 8088:8088 \
   -e KAFKA_BROKER=your-kafka-broker:9092 \
   -e KAFKA_TOPIC=your-topic \
   cmf
@@ -219,7 +219,7 @@ The server provides detailed logging:
 ┌─────────────────┐    WebSocket    ┌──────────────────┐
 │   Web Client    │◄──────────────►│  WebSocket       │
 │   (client-simulator.html) │       │  Server          │
-└─────────────────┘                 │  (port 3000)     │
+└─────────────────┘                 │  (port 8088)     │
                                     └─────────┬────────┘
                                               │
                                               │ Kafka
@@ -265,7 +265,7 @@ npm start        # Start production server
 
 ### Common Issues
 
-1. **Port conflicts**: Ensure ports 3000, 8080, 9092, and 2181 are available
+1. **Port conflicts**: Ensure ports 8088, 8080, 9092, and 2181 are available
 2. **Kafka connection**: Verify Kafka is running with `docker-compose ps`
 3. **WebSocket connection**: Check browser console for connection errors
 4. **Message not received**: Verify Kafka topic exists and consumer is subscribed
