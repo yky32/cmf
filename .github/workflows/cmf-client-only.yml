@@ -1,0 +1,91 @@
+name: Deploy CMF Client Only
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prd
+      release_name:
+        description: 'Release name (optional)'
+        required: false
+        default: 'cmf-client'
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  DOCTL_VERSION: "1.127.0"
+  CLUSTER_NAME: "k8s-tgt"
+  NAMESPACE: "default"
+
+jobs:
+  deploy-client:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ☑️ Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Authenticate with DigitalOcean
+        uses: ./.github/actions/doctl-auth
+        with:
+          token: ${{ secrets.DIGITAL_OCEAN_DEPLOY_TOKEN }}
+          doctl_version: ${{ env.DOCTL_VERSION }}
+
+      - name: 🎨 Deploy Client Simulator
+        uses: ./.github/actions/k8s-helm-deploy
+        with:
+          cluster_name: ${{ env.CLUSTER_NAME }}
+          namespace: ${{ env.NAMESPACE }}
+          chart_path: "./k8s/cmf-client"
+          release_name: ${{ github.event.inputs.release_name || 'cmf-client' }}
+          values_file: "./k8s/cmf-client/values-${{ github.event.inputs.environment }}.yaml"
+
+      - name: 📊 Get deployment info
+        run: |
+          echo "📊 Deployment Information:"
+          echo "  Environment: ${{ github.event.inputs.environment }}"
+          echo "  Release name: ${{ github.event.inputs.release_name || 'cmf-client' }}"
+          echo "  Namespace: ${{ env.NAMESPACE }}"
+          echo ""
+          echo "🔗 Access URLs:"
+          if [ "${{ github.event.inputs.environment }}" = "dev" ]; then
+            echo "  Client: http://cmf-client-dev.local"
+            echo "  WebSocket: ws://cmf-dev.local"
+          else
+            echo "  Client: https://cmf-client.example.com"
+            echo "  WebSocket: wss://cmf.example.com"
+          fi
+        shell: bash
+
+  notify:
+    needs: deploy-client
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - name: 📣 Notify Discord on Success
+        if: needs.deploy-client.result == 'success'
+        uses: ./.github/actions/notify-discord
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: "success"
+          repo: ${{ github.repository }}
+          run_number: ${{ github.run_number }}
+          message: "🎨 CMF Client deployed to ${{ github.event.inputs.environment }} environment!"
+
+      - name: 📣 Notify Discord on Failure
+        if: needs.deploy-client.result != 'success'
+        uses: ./.github/actions/notify-discord
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: "failure"
+          repo: ${{ github.repository }}
+          run_number: ${{ github.run_number }}
+          message: "❌ CMF Client deployment to ${{ github.event.inputs.environment }} failed!"

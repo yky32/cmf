@@ -1,0 +1,26 @@
+name: 'Discord Notification'
+description: 'Send deployment success/failure to Discord'
+inputs:
+  webhook:
+    required: true
+  status:
+    required: true
+  repo:
+    required: true
+  run_number:
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Notify Discord
+      shell: bash
+      run: |
+        if [ "${{ inputs.status }}" == "success" ]; then
+          MSG="✅ Deployment of \`${{ inputs.repo }}\` \`[${{ inputs.run_number }}]\` to production was successful!"
+        else
+          MSG="❌ Deployment of \`${{ inputs.repo }}\` \`[${{ inputs.run_number }}]\` failed! Check the logs."
+        fi
+        curl -H "Content-Type: application/json" \
+             -X POST \
+             -d "{\"content\": \"$MSG\"}" \
+             '${{ inputs.webhook }}'

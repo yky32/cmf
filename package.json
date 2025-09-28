@@ -5,7 +5,14 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "dev": "KAFKAJS_NO_PARTITIONER_WARNING=1 ts-node-dev --respawn --transpile-only src/server.ts"
+    "dev": "KAFKAJS_NO_PARTITIONER_WARNING=1 ts-node-dev --respawn --transpile-only src/server.ts",
+    "test": "echo \"No tests specified\" && exit 0",
+    "lint": "echo \"No linter configured\" && exit 0",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean",
+    "docker:build": "docker build -t cmf:latest .",
+    "docker:run": "docker run -p 8088:8088 cmf:latest",
+    "docker:test": "docker build -t cmf:test . && docker run --rm -p 8088:8088 cmf:test"
   },
   "dependencies": {
     "kafkajs": "^2.2.4",

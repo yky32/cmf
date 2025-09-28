@@ -1,0 +1,127 @@
+name: Build CMF, Push Docker Image to DOCR, Deploy to K8s
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  NODE_VERSION: "20"
+  DOCTL_VERSION: "1.127.0"
+  CLUSTER_NAME: "k8s-tgt"
+  NAMESPACE: "default"
+  IMAGE_REPO: "registry.digitalocean.com/qs-ecr/cmf"
+  IMAGE_TAG: "latest"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ☑️ Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📥 Install dependencies
+        run: npm ci
+
+      - name: 🔨 Build TypeScript
+        run: npm run build
+
+      - name: 🧪 Run tests (if available)
+        run: npm test --if-present
+
+      - name: 🔍 Lint code
+        run: npm run lint --if-present
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      result: ${{ steps.set-output.outputs.result }}
+    steps:
+      - name: ☑️ Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Authenticate with DigitalOcean
+        uses: ./.github/actions/doctl-auth
+        with:
+          token: ${{ secrets.DIGITAL_OCEAN_DEPLOY_TOKEN }}
+          doctl_version: ${{ env.DOCTL_VERSION }}
+
+      - name: 🐳 Build and Push Docker Image
+        uses: ./.github/actions/docker-push
+        with:
+          repo: ${{ env.IMAGE_REPO }}
+          image_tag: ${{ env.IMAGE_TAG }}
+
+      - name: 🚀 Deploy to Kubernetes
+        id: set-output
+        uses: ./.github/actions/k8s-helm-deploy
+        with:
+          cluster_name: ${{ env.CLUSTER_NAME }}
+          namespace: ${{ env.NAMESPACE }}
+          chart_path: "./k8s/helm/cmf"
+          release_name: "cmf"
+          values_file: "./k8s/helm/cmf/values-prd.yaml"
+
+  deploy-client:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: ☑️ Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Authenticate with DigitalOcean
+        uses: ./.github/actions/doctl-auth
+        with:
+          token: ${{ secrets.DIGITAL_OCEAN_DEPLOY_TOKEN }}
+          doctl_version: ${{ env.DOCTL_VERSION }}
+
+      - name: 🎨 Deploy Client Simulator
+        uses: ./.github/actions/k8s-helm-deploy
+        with:
+          cluster_name: ${{ env.CLUSTER_NAME }}
+          namespace: ${{ env.NAMESPACE }}
+          chart_path: "./k8s/cmf-client"
+          release_name: "cmf-client"
+          values_file: "./k8s/cmf-client/values-prd.yaml"
+
+  notify:
+    needs: [build-and-push, deploy-client]
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: 📣 Notify Discord on Success
+        if: needs.build-and-push.result == 'success' && needs.deploy-client.result == 'success'
+        uses: ./.github/actions/notify-discord
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: "success"
+          repo: ${{ github.repository }}
+          run_number: ${{ github.run_number }}
+          message: "🚀 CMF Server and Client deployed successfully!"
+
+      - name: 📣 Notify Discord on Failure
+        if: needs.build-and-push.result != 'success' || needs.deploy-client.result != 'success'
+        uses: ./.github/actions/notify-discord
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: "failure"
+          repo: ${{ github.repository }}
+          run_number: ${{ github.run_number }}
+          message: "❌ CMF deployment failed!"

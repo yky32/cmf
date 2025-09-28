@@ -1,0 +1,22 @@
+name: "Authenticate with DigitalOcean"
+description: "Sets up doctl and authenticates with DigitalOcean"
+
+inputs:
+  token:
+    description: "DigitalOcean API token"
+    required: true
+  doctl_version:
+    description: "DigitalOcean CLI version"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install doctl and Authenticate with DigitalOcean
+      shell: bash
+      run: |
+        curl -sL https://github.com/digitalocean/doctl/releases/download/v${{ inputs.doctl_version }}/doctl-${{ inputs.doctl_version }}-linux-amd64.tar.gz | tar -xz
+        sudo mv doctl /usr/local/bin
+        doctl version
+        doctl auth init --access-token "${{ inputs.token }}"
+        doctl registry login

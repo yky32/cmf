@@ -1,0 +1,96 @@
+name: "K8s Helm Deploy"
+description: "Connects to a DigitalOcean Kubernetes cluster and deploys using Helm"
+
+inputs:
+  cluster_name:
+    description: "DigitalOcean Kubernetes cluster name"
+    required: true
+  namespace:
+    description: "Kubernetes namespace"
+    required: true
+  chart_path:
+    description: "Path to Helm chart"
+    required: true
+  release_name:
+    description: "Helm release name"
+    required: true
+  values_file:
+    description: "Path to values file"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: ⬇️ Install kubectl
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y kubectl
+      shell: bash
+
+    - name: ⬇️ Install Helm
+      run: |
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        helm version
+      shell: bash
+
+    - name: 🔗 Connect to Kubernetes Cluster
+      run: |
+        echo "🔗 Connecting to cluster '${{ inputs.cluster_name }}'"
+        doctl kubernetes cluster kubeconfig save "${{ inputs.cluster_name }}"
+        kubectl cluster-info
+      shell: bash
+
+    - name: 📋 Create namespace if not exists
+      run: |
+        echo "📋 Ensuring namespace '${{ inputs.namespace }}' exists"
+        kubectl create namespace "${{ inputs.namespace }}" --dry-run=client -o yaml | kubectl apply -f -
+      shell: bash
+
+    - name: 🚀 Deploy with Helm
+      run: |
+        echo "🚀 Deploying Helm chart..."
+        echo "  Chart path: ${{ inputs.chart_path }}"
+        echo "  Release name: ${{ inputs.release_name }}"
+        echo "  Namespace: ${{ inputs.namespace }}"
+        echo "  Values file: ${{ inputs.values_file }}"
+        
+        if [ -n "${{ inputs.values_file }}" ] && [ -f "${{ inputs.values_file }}" ]; then
+          echo "📄 Using values file: ${{ inputs.values_file }}"
+          helm upgrade --install "${{ inputs.release_name }}" "${{ inputs.chart_path }}" \
+            --namespace "${{ inputs.namespace }}" \
+            --values "${{ inputs.values_file }}" \
+            --wait \
+            --timeout 10m
+        else
+          echo "📄 Using default values"
+          helm upgrade --install "${{ inputs.release_name }}" "${{ inputs.chart_path }}" \
+            --namespace "${{ inputs.namespace }}" \
+            --wait \
+            --timeout 10m
+        fi
+        
+        echo "✅ Helm deployment completed successfully"
+      shell: bash
+
+    - name: 📊 Check deployment status
+      run: |
+        echo "📊 Checking deployment status..."
+        kubectl get pods -n "${{ inputs.namespace }}" -l app.kubernetes.io/name="${{ inputs.release_name }}"
+        kubectl get svc -n "${{ inputs.namespace }}" -l app.kubernetes.io/name="${{ inputs.release_name }}"
+        kubectl get ingress -n "${{ inputs.namespace }}" -l app.kubernetes.io/name="${{ inputs.release_name }}"
+      shell: bash
+
+    - name: 🧹 Trigger Garbage Collection
+      shell: bash
+      run: |
+        echo "🧹 Triggering garbage collection..."
+        doctl registry garbage-collection start --force
+      shell: bash
+
+    - name: 📊 Check Garbage Collection Status
+      shell: bash
+      run: |
+        echo "📊 Checking garbage collection status..."
+        doctl registry garbage-collection get-active
+      shell: bash
