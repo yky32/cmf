@@ -17,11 +17,11 @@ export interface WebSocketServiceConfig {
 
 export class WebSocketService {
   private wss: WebSocketServer;
-  private httpServer: any;
+  private readonly httpServer: any;
   private clients: Map<string, WebSocket> = new Map();
   private clientCounter = 1;
   private config: WebSocketServiceConfig;
-  private kafkaService: KafkaService;
+  private readonly kafkaService: KafkaService;
 
   constructor(config: WebSocketServiceConfig) {
     this.config = config;
