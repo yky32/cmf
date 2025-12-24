@@ -27,9 +27,15 @@ export class KafkaService {
       ...config
     };
 
+    // Parse broker string - support comma-separated list of brokers
+    const brokers = this.config.broker
+      .split(',')
+      .map(b => b.trim())
+      .filter(b => b.length > 0);
+
     this.kafka = new Kafka({
       clientId: this.config.clientId!,
-      brokers: [this.config.broker],
+      brokers: brokers,
     });
 
     this.producer = this.kafka.producer();
