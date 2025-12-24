@@ -55,7 +55,7 @@ export class KafkaService {
           try {
             const msg = message.value?.toString() ?? "";
             const parsedMessage: KafkaMessage = JSON.parse(msg);
-            console.log(`📥 Kafka → WS: ${msg}`);
+            console.log(`📥 Received from Kafka → WS: ${msg}`);
 
             // Notify all registered message handlers
             this.messageHandlers.forEach(handler => {
