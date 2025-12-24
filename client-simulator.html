@@ -303,6 +303,7 @@
         
         function connect() {
             ws = new WebSocket('ws://localhost:8088');
+            //ws = new WebSocket('wss://api.tgt.gg/cmf');
             
             ws.onopen = function() {
                 updateStatus('Connected', 'connected');
