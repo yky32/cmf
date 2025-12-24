@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "cmf-client.fullname" . }}-html
-  labels:
-    {{- include "cmf-client.labels" . | nindent 4 }}
-data:
-  client-simulator.html: |
-    {{- .Files.Get "client-simulator.html" | nindent 4 }}
