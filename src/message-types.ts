@@ -11,8 +11,6 @@
 export enum ClientMessageType {
   /** Broadcast message to all clients via Kafka */
   BROADCAST_ALL = "broadcast-all",
-  /** Legacy alias for BROADCAST_ALL */
-  BROADCAST = "broadcast",
   /** Send direct message to a specific client */
   BROADCAST_ONE = "broadcast-one",
   /** Disconnect a specific client by ID */

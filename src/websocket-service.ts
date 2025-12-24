@@ -111,7 +111,6 @@ export class WebSocketService {
 
   private async handleMessage(clientId: string, message: WebSocketMessage): Promise<void> {
     switch (message.type) {
-      case ClientMessageType.BROADCAST:
       case ClientMessageType.BROADCAST_ALL:
         await this.handleBroadcast(clientId, message.message || "");
         break;
