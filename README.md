@@ -1,28 +1,119 @@
 # CMF - WebSocket + Kafka Server
 
-CMF is a real-time messaging server that combines WebSocket connections with Apache Kafka for scalable message broadcasting and direct messaging capabilities.
+**CMF** (Communication Message Framework) is a high-performance, real-time messaging server that seamlessly integrates WebSocket connections with Apache Kafka. Built with TypeScript and Node.js, CMF enables scalable, distributed real-time communication by combining the low-latency benefits of WebSocket with the robust message streaming capabilities of Kafka.
+
+## 🎯 What is CMF?
+
+CMF bridges the gap between real-time client communication and distributed message processing. It's designed for applications that require:
+
+- **Real-time bidirectional communication** between clients and servers
+- **Scalable message broadcasting** across multiple server instances
+- **Reliable message delivery** with Kafka's persistence and fault tolerance
+- **Horizontal scalability** through Kafka's distributed architecture
+- **Client management** capabilities for connection control and monitoring
+
+Perfect for chat applications, real-time dashboards, live notifications, collaborative tools, gaming servers, and any system requiring instant message delivery at scale.
 
 ## 🚀 Features
 
-### Core Functionality
-- **WebSocket Server**: Real-time bidirectional communication on port 8088
-- **Kafka Integration**: Scalable message streaming and broadcasting
-- **Client Management**: Track and manage connected clients with unique IDs
-- **Auto-reload Development**: Hot reloading with ts-node-dev for rapid development
+### Core Architecture
+- **WebSocket Server**: Real-time bidirectional communication on port 8088 (configurable)
+- **Kafka Integration**: Full producer/consumer integration with Apache Kafka for scalable message streaming
+- **HTTP Server**: Built-in HTTP server for health checks and monitoring
+- **TypeScript**: Fully typed codebase for better maintainability and developer experience
+- **Modular Design**: Separated concerns with dedicated Kafka and WebSocket service classes
 
-### Key Features Available
-- 📡 **Broadcast messaging** via Kafka - Send messages to all connected clients
-- 💬 **Direct client-to-client messaging** - Send targeted messages to specific clients
-- 👥 **Client management** - Kick individual clients or all clients at once
-- 🔄 **Real-time message streaming** - Instant message delivery and updates
-- 📊 **Kafka monitoring** via web UI at http://localhost:8095
-- 🐳 **Docker support** - Easy local development with Kafka stack
-- 🌐 **Web UI client** - Interactive HTML client simulator for testing functionality
-- ⚡ **Message Types**:
-  - `broadcast-all` - Broadcast to all clients (via Kafka)
-  - `broadcast-one` - Direct messaging between clients
-  - `kick-one` - Kick specific client
-  - `kick-all` - Kick all connected clients
+### Messaging Capabilities
+- 📡 **Broadcast Messaging**: Send messages to all connected clients via Kafka for distributed broadcasting
+- 💬 **Direct Messaging**: Point-to-point communication between specific clients
+- 🔄 **Real-time Delivery**: Instant message delivery with WebSocket's low-latency protocol
+- 📨 **Message Persistence**: Messages stored in Kafka for reliability and replay capabilities
+- ⏱️ **Timestamp Support**: Automatic timestamping of all messages for tracking and ordering
+- 🔑 **Message Keys**: Kafka messages keyed by sender for efficient partitioning
+
+### Client Management
+- 🆔 **Unique Client IDs**: Automatic assignment of unique identifiers (`client-1`, `client-2`, etc.)
+- 👥 **Client Tracking**: Real-time tracking of all connected clients with in-memory Map storage
+- 📊 **Client Count**: Live monitoring of connected client count
+- 📋 **Client List Broadcasting**: Automatic distribution of client list updates to all connected clients
+- 🔔 **Connection Notifications**: Real-time notifications when clients connect or disconnect
+- 👢 **Client Kicking**: Ability to disconnect individual clients or all clients simultaneously
+- ✅ **Connection State Management**: Proper handling of WebSocket connection states (OPEN, CLOSED, etc.)
+
+### Message Types
+
+#### Client → Server Messages
+- `broadcast-all` / `broadcast` - Broadcast message to all clients (via Kafka)
+- `broadcast-one` - Send direct message to a specific client
+- `kick-one` - Disconnect a specific client by ID
+- `kick-all` - Disconnect all connected clients
+
+#### Server → Client Messages
+- `welcome` - Initial connection message with assigned client ID
+- `kafka` - Broadcast message received from Kafka
+- `direct` - Direct message from another client
+- `error` - Error notification message
+- `kicked` - Notification that client has been disconnected
+- `client-list` - Updated list of all connected clients
+- `client-connected` - Notification of a new client connection
+- `client-disconnected` - Notification of a client disconnection
+
+### Development & Testing
+- 🔥 **Hot Reload**: Auto-reload development mode with `ts-node-dev` for rapid iteration
+- 🌐 **Web Client Simulator**: Interactive HTML client (`client-simulator.html`) for testing:
+  - Visual connection status indicator
+  - Real-time message log with timestamps (HKT timezone)
+  - Client list sidebar with current client highlighting
+  - Toast notifications for incoming messages
+  - Responsive design for mobile and desktop
+  - Keyboard shortcuts (Enter to send messages)
+- 🧪 **CI/CD Ready**: Test scripts included for continuous integration
+- 📝 **Comprehensive Logging**: Detailed console logs for debugging and monitoring
+
+### Infrastructure & Deployment
+- 🐳 **Docker Support**: 
+  - Production-ready Dockerfile with multi-stage builds
+  - Non-root user for security
+  - Optimized Alpine-based image
+- 🐙 **Docker Compose**: Complete Kafka stack setup:
+  - Zookeeper (port 2181)
+  - Kafka broker (port 9092)
+  - Kafka UI for monitoring (port 8095)
+- ☸️ **Kubernetes Support**: 
+  - Helm charts for both server and client simulator
+  - Separate configurations for dev and production environments
+  - Health check probes (liveness and readiness)
+  - Horizontal Pod Autoscaling (HPA) support
+  - ConfigMap and Service definitions
+  - Ingress configuration
+
+### Monitoring & Health
+- ❤️ **Health Check Endpoint**: `/health` endpoint returning:
+  - Server status
+  - Current timestamp
+  - Connected client count
+  - Kafka connection status
+- 📊 **Kafka UI Integration**: Web-based interface for Kafka topic and message monitoring
+- 📈 **Connection Metrics**: Real-time tracking of WebSocket connections
+- 🔍 **Error Handling**: Comprehensive error handling with user-friendly error messages
+
+### Configuration & Flexibility
+- ⚙️ **Environment Variables**:
+  - `PORT` - WebSocket server port (default: 8088)
+  - `KAFKA_BROKER` - Kafka broker address (default: localhost:9092)
+  - `KAFKA_TOPIC` - Kafka topic name (default: ws-messages)
+- 🔧 **Customizable Kafka Settings**:
+  - Configurable client ID and consumer group ID
+  - Topic subscription with `fromBeginning` option
+  - Message handler pattern for extensibility
+
+### Reliability & Performance
+- 🛡️ **Graceful Shutdown**: Proper cleanup on SIGTERM and SIGINT signals
+- 🔄 **Connection Recovery**: Automatic reconnection handling for Kafka consumers
+- 💾 **Message Durability**: Kafka's persistent message storage
+- ⚡ **Low Latency**: WebSocket for instant message delivery
+- 📦 **Consumer Groups**: Kafka consumer group support for load balancing
+- 🔐 **Error Resilience**: Robust error handling preventing server crashes
 
 ## 📋 Prerequisites
 
