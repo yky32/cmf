@@ -1,9 +1,10 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "http";
 import { KafkaService, KafkaMessage } from "./kafka-service";
+import { ClientMessageType, ServerMessageType, MessageType } from "./message-types";
 
 export interface WebSocketMessage {
-  type: string;
+  type: MessageType;
   message?: string;
   targetId?: string;
   [key: string]: any;
@@ -56,7 +57,7 @@ export class WebSocketService {
     this.kafkaService.onMessage((kafkaMessage: KafkaMessage) => {
       // Broadcast Kafka message to all connected WebSocket clients
       this.broadcastToAll({
-        type: "kafka",
+        type: ServerMessageType.KAFKA,
         from: kafkaMessage.from,
         message: kafkaMessage.message,
         timestamp: kafkaMessage.timestamp || Date.now()
@@ -72,7 +73,7 @@ export class WebSocketService {
       console.log(`✅ ${clientId} connected`);
       
       // Send welcome message
-      this.sendToClient(ws, { type: "welcome", clientId });
+      this.sendToClient(ws, { type: ServerMessageType.WELCOME, clientId });
       
       // Send current client list to the new client
       this.broadcastClientList();
@@ -86,7 +87,7 @@ export class WebSocketService {
           await this.handleMessage(clientId, message);
         } catch (err) {
           console.error("❌ Error parsing message:", err);
-          this.sendToClient(ws, { type: "error", message: "Invalid message format" });
+          this.sendToClient(ws, { type: ServerMessageType.ERROR, message: "Invalid message format" });
         }
       });
 
@@ -110,20 +111,20 @@ export class WebSocketService {
 
   private async handleMessage(clientId: string, message: WebSocketMessage): Promise<void> {
     switch (message.type) {
-      case "broadcast":
-      case "broadcast-all":
+      case ClientMessageType.BROADCAST:
+      case ClientMessageType.BROADCAST_ALL:
         await this.handleBroadcast(clientId, message.message || "");
         break;
 
-      case "broadcast-one":
+      case ClientMessageType.BROADCAST_ONE:
         this.handleDirectMessage(clientId, message.targetId || "", message.message || "");
         break;
 
-      case "kick-one":
+      case ClientMessageType.KICK_ONE:
         this.handleKickClient(clientId, message.targetId || "");
         break;
 
-      case "kick-all":
+      case ClientMessageType.KICK_ALL:
         this.handleKickAllClients(clientId);
         break;
 
@@ -131,7 +132,7 @@ export class WebSocketService {
         console.log(`❓ Unknown message type: ${message.type}`);
         const client = this.clients.get(clientId);
         if (client) {
-          this.sendToClient(client, { type: "error", message: "Unknown command" });
+          this.sendToClient(client, { type: ServerMessageType.ERROR, message: "Unknown command" });
         }
     }
   }
@@ -154,7 +155,7 @@ export class WebSocketService {
     const targetClient = this.clients.get(targetId);
     if (targetClient && targetClient.readyState === WebSocket.OPEN) {
       this.sendToClient(targetClient, {
-        type: "direct",
+        type: ServerMessageType.DIRECT,
         from,
         message,
         timestamp: Date.now()
@@ -169,7 +170,7 @@ export class WebSocketService {
     const targetClient = this.clients.get(targetId);
     if (targetClient) {
       this.sendToClient(targetClient, { 
-        type: "kicked", 
+        type: ServerMessageType.KICKED, 
         message: "You have been kicked out." 
       });
       targetClient.close();
@@ -184,7 +185,7 @@ export class WebSocketService {
     for (const [clientId, client] of this.clients) {
       if (clientId !== from) {
         this.sendToClient(client, { 
-          type: "kicked", 
+          type: ServerMessageType.KICKED, 
           message: "All clients disconnected." 
         });
         client.close();
@@ -207,15 +208,15 @@ export class WebSocketService {
 
   private broadcastClientList(): void {
     const clientList = Array.from(this.clients.keys());
-    this.broadcastToAll({ type: "client-list", clients: clientList });
+    this.broadcastToAll({ type: ServerMessageType.CLIENT_LIST, clients: clientList });
   }
 
   private broadcastClientConnected(clientId: string): void {
-    this.broadcastToAll({ type: "client-connected", clientId });
+    this.broadcastToAll({ type: ServerMessageType.CLIENT_CONNECTED, clientId });
   }
 
   private broadcastClientDisconnected(clientId: string): void {
-    this.broadcastToAll({ type: "client-disconnected", clientId });
+    this.broadcastToAll({ type: ServerMessageType.CLIENT_DISCONNECTED, clientId });
   }
 
 
