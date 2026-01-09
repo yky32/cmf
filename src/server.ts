@@ -3,7 +3,7 @@ import { WebSocketService } from "./websocket-service";
 
 const PORT = process.env.PORT || 8088;
 const KAFKA_BROKER = process.env.KAFKA_BROKER || "localhost:9092";
-const KAFKA_TOPIC = process.env.KAFKA_TOPIC || "ws-messages";
+const KAFKA_TOPIC = process.env.KAFKA_TOPIC || "messenger-ws.chat-messages";
 
 async function startServer() {
   try {
