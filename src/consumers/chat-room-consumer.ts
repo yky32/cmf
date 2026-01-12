@@ -17,7 +17,7 @@ export interface ChatMessageEvent {
  * RoomCreatedEvent from Spring Boot (for room creation)
  */
 export interface RoomCreatedEvent {
-    roomId: string;
+    chatRoomId: string;
     type?: string;
     name?: string;
     participantIds?: string[];
@@ -50,7 +50,7 @@ export class ChatRoomConsumer implements BaseConsumer {
             if (message.roomId || (message.type && message.type === "room.created")) {
                 // Handle room creation event
                 const roomEvent: RoomCreatedEvent = message;
-                const roomId = roomEvent.roomId || message.roomId;
+                const roomId = roomEvent.chatRoomId || message.roomId;
                 
                 console.log(`🏠 [ChatRoomConsumer] Received chat room creation event: Chat Room ${roomId}`);
                 
