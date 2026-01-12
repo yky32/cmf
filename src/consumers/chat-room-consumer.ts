@@ -44,8 +44,8 @@ export class ChatRoomConsumer implements BaseConsumer {
         try {
             // Handle chat room creation event
             if (message.chatRoomId || message.roomId || (message.type && message.type === "room.created")) {
-                const roomEvent = message as ChatRoomCreatedEvent;
-                const chatRoomId = roomEvent.chatRoomId || message.roomId;
+                const chatRoomCreatedEvent = message as ChatRoomCreatedEvent;
+                const chatRoomId = chatRoomCreatedEvent.chatRoomId || message.roomId;
                 
                 if (!chatRoomId) {
                     console.warn(`⚠️ [ChatRoomConsumer] Received room event without chatRoomId:`, message);
@@ -56,9 +56,9 @@ export class ChatRoomConsumer implements BaseConsumer {
                 
                 // Create chat room in CMF
                 this.webSocketService.createChatRoom(chatRoomId, {
-                    type: roomEvent.type,
-                    name: roomEvent.name,
-                    participantIds: roomEvent.participantIds
+                    type: chatRoomCreatedEvent.type,
+                    name: chatRoomCreatedEvent.name,
+                    participantIds: chatRoomCreatedEvent.participantIds
                 });
                 
                 console.log(`✅ [ChatRoomConsumer] Chat room ${chatRoomId} created in CMF`);
