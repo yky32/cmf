@@ -3,20 +3,9 @@ import {WebSocketService} from "../websocket-service";
 import {KafkaTopics} from "../kafka-topics";
 
 /**
- * ChatMessageEvent from Spring Boot (for chat messages)
+ * ChatRoomCreatedEvent from Spring Boot (for chat room creation)
  */
-export interface ChatMessageEvent {
-    chatRoomId: string;
-    from: string;
-    to?: string;
-    content: string;
-    sentTimestamp: number;
-}
-
-/**
- * RoomCreatedEvent from Spring Boot (for room creation)
- */
-export interface RoomCreatedEvent {
+export interface ChatRoomCreatedEvent {
     chatRoomId: string;
     type?: string;
     name?: string;
@@ -25,9 +14,16 @@ export interface RoomCreatedEvent {
 }
 
 /**
+ * ChatRoomActivityEvent - Base interface for all chat room activity events
+ */
+export type ChatRoomActivityEvent = ChatRoomCreatedEvent;
+
+/**
  * Consumer for messenger.chat-room topic
  *
- * Handles chat room events from Spring Boot and broadcasts to WebSocket clients.
+ * Handles chat room activity events from Spring Boot (room creation, updates, etc.).
+ * This consumer only handles events related to chat room lifecycle and activity,
+ * not chat messages (which are handled by ChatMessageConsumer).
  */
 export class ChatRoomConsumer implements BaseConsumer {
     private webSocketService: WebSocketService;
@@ -46,42 +42,31 @@ export class ChatRoomConsumer implements BaseConsumer {
 
     async handleMessage(message: any): Promise<void> {
         try {
-            // Check if this is a room creation event or a chat message event
-            if (message.roomId || (message.type && message.type === "room.created")) {
-                // Handle room creation event
-                const roomEvent: RoomCreatedEvent = message;
-                const roomId = roomEvent.chatRoomId || message.roomId;
+            // Handle chat room creation event
+            if (message.chatRoomId || message.roomId || (message.type && message.type === "room.created")) {
+                const roomEvent = message as ChatRoomCreatedEvent;
+                const chatRoomId = roomEvent.chatRoomId || message.roomId;
                 
-                console.log(`🏠 [ChatRoomConsumer] Received chat room creation event: Chat Room ${roomId}`);
+                if (!chatRoomId) {
+                    console.warn(`⚠️ [ChatRoomConsumer] Received room event without chatRoomId:`, message);
+                    return;
+                }
+                
+                console.log(`🏠 [ChatRoomConsumer] Received chat room creation event: Chat Room ${chatRoomId}`);
                 
                 // Create chat room in CMF
-                this.webSocketService.createChatRoom(roomId, {
+                this.webSocketService.createChatRoom(chatRoomId, {
                     type: roomEvent.type,
                     name: roomEvent.name,
                     participantIds: roomEvent.participantIds
                 });
                 
-                console.log(`✅ [ChatRoomConsumer] Chat room ${roomId} created in CMF`);
+                console.log(`✅ [ChatRoomConsumer] Chat room ${chatRoomId} created in CMF`);
             } else {
-                // Handle chat message event
-                const event: ChatMessageEvent = message;
-                
-                console.log(`📥 [ChatRoomConsumer] Received chat room message: Chat Room ${event.chatRoomId}, From: ${event.from}`);
-
-                // Broadcast to specific chat room (not all clients)
-                this.webSocketService.broadcastChatMessage({
-                    chatRoomId: event.chatRoomId,
-                    from: event.from,
-                    to: event.to,
-                    message: event.content,
-                    content: event.content,
-                    timestamp: event.sentTimestamp
-                });
-
-                console.log(`📤 [ChatRoomConsumer] Broadcasted chat room message to chat room ${event.chatRoomId}`);
+                console.warn(`⚠️ [ChatRoomConsumer] Received unknown chat room activity event:`, message);
             }
         } catch (error) {
-            console.error(`❌ [ChatRoomConsumer] Error processing message:`, error);
+            console.error(`❌ [ChatRoomConsumer] Error processing chat room activity event:`, error);
             throw error;
         }
     }
