@@ -25,8 +25,6 @@ export enum ClientMessageType {
 export enum ServerMessageType {
   /** Initial connection message with assigned client ID */
   WELCOME = "welcome",
-  /** Broadcast message received from Kafka */
-  KAFKA = "kafka",
   /** Direct message from another client */
   DIRECT = "direct",
   /** Error notification message */

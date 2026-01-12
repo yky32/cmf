@@ -29,7 +29,7 @@ export class ChatMessageConsumer implements BaseConsumer {
     }
 
     getGroupId(): string {
-        return "cmf-chat-message-group";
+        return `${this.getTopic()}-group`;
     }
 
     async handleMessage(message: any): Promise<void> {
