@@ -18,7 +18,7 @@ Create a new file in `src/consumers/` directory:
 
 ```typescript
 // src/consumers/your-new-consumer.ts
-import { IConsumer } from "./base-consumer";
+import { BaseConsumer } from "./base-consumer";
 import { WebSocketService } from "../websocket-service";
 
 /**
@@ -33,7 +33,7 @@ export interface YourEvent {
 /**
  * Consumer for your-topic-name topic
  */
-export class YourNewConsumer implements IConsumer {
+export class YourNewConsumer implements BaseConsumer {
   private webSocketService: WebSocketService;
 
   constructor(webSocketService: WebSocketService) {
