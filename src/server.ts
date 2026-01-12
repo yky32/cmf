@@ -1,76 +1,82 @@
-import { KafkaService } from "./kafka-service";
-import { KafkaConsumerManager } from "./kafka-consumer-manager";
-import { WebSocketService } from "./websocket-service";
-import { ChatRoomConsumer } from "./consumers/chat-room-consumer";
-import { ChatMessageConsumer } from "./consumers/chat-message-consumer";
+import {KafkaService} from "./kafka-service";
+import {KafkaConsumerManager} from "./kafka-consumer-manager";
+import {WebSocketService} from "./websocket-service";
+import {ChatRoomConsumer} from "./consumers/chat-room-consumer";
+import {ChatMessageConsumer} from "./consumers/chat-message-consumer";
+import {KafkaTopics} from "./kafka-topics";
 
 const PORT = process.env.PORT || 8088;
 const KAFKA_BROKER = process.env.KAFKA_BROKER || "localhost:9092";
-const KAFKA_TOPIC = process.env.KAFKA_TOPIC || "messenger-ws.chat-messages";
 
 async function startServer() {
-  try {
-    // Initialize Kafka producer service
-    const kafkaService = new KafkaService({
-      broker: KAFKA_BROKER,
-      topic: KAFKA_TOPIC,
-      clientId: "cmf-producer"
-    });
+    try {
+        // Initialize Kafka producer service
+        const kafkaService = new KafkaService({
+            broker: KAFKA_BROKER,
+            topic: KafkaTopics.WS_CHAT_MESSAGES, // Default topic for producer
+            clientId: "cmf-producer"
+        });
 
-    await kafkaService.initialize();
+        await kafkaService.initialize();
 
-    // Initialize WebSocket service
-    const webSocketService = new WebSocketService({
-      port: Number(PORT),
-      kafkaService
-    });
+        // Initialize WebSocket service
+        const webSocketService = new WebSocketService({
+            port: Number(PORT),
+            kafkaService
+        });
 
-    // Initialize Kafka consumer manager
-    const consumerManager = new KafkaConsumerManager({
-      broker: KAFKA_BROKER,
-      clientId: "cmf-consumer-manager"
-    });
+        // Initialize Kafka consumer manager
+        const consumerManager = new KafkaConsumerManager({
+            broker: KAFKA_BROKER,
+            clientId: "cmf-consumer-manager"
+        });
 
-    // Register all consumers
-    // To add a new topic, just create a new consumer class and register it here
-    await consumerManager.registerConsumer(
-      new ChatRoomConsumer(webSocketService)
-    );
+        // Register all consumers
+        // To add a new topic, just create a new consumer class and register it here
+        console.log(`\n${"=".repeat(60)}`);
+        console.log(`🔌 INITIALIZING KAFKA CONSUMERS`);
+        console.log(`${"=".repeat(60)}`);
 
-    await consumerManager.registerConsumer(
-      new ChatMessageConsumer(webSocketService)
-    );
+        await consumerManager.registerConsumer(
+            new ChatRoomConsumer(webSocketService)
+        );
 
-    // Add more consumers here as needed:
-    // await consumerManager.registerConsumer(new YourNewConsumer(webSocketService));
+        await consumerManager.registerConsumer(
+            new ChatMessageConsumer(webSocketService)
+        );
 
-    console.log(`🚀 WebSocket server running on ws://0.0.0.0:${PORT}`);
-    console.log(`📡 Kafka broker: ${KAFKA_BROKER}`);
-    console.log(`📊 Registered topics: ${consumerManager.getRegisteredTopics().join(", ")}`);
-    console.log(`📊 Total consumers: ${consumerManager.getConsumerCount()}`);
-    console.log(`📊 Connected clients: ${webSocketService.getClientCount()}`);
+        // Add more consumers here as needed:
+        // await consumerManager.registerConsumer(new YourNewConsumer(webSocketService));
 
-    // Graceful shutdown
-    process.on("SIGTERM", async () => {
-      console.log("🛑 Received SIGTERM, shutting down gracefully...");
-      webSocketService.close();
-      await consumerManager.disconnectAll();
-      await kafkaService.disconnect();
-      process.exit(0);
-    });
+        // Print summary of all connected consumers
+        consumerManager.printSummary();
 
-    process.on("SIGINT", async () => {
-      console.log("🛑 Received SIGINT, shutting down gracefully...");
-      webSocketService.close();
-      await consumerManager.disconnectAll();
-      await kafkaService.disconnect();
-      process.exit(0);
-    });
+        console.log(`🚀 WebSocket server running on ws://0.0.0.0:${PORT}`);
+        console.log(`📡 Kafka broker: ${KAFKA_BROKER}`);
+        console.log(`📊 Connected WebSocket clients: ${webSocketService.getClientCount()}`);
+        console.log(`📋 Available topics in config: ${Object.entries(KafkaTopics).map(([key, value]) => `${key}: ${value}`).join(", ")}`);
 
-  } catch (error) {
-    console.error("❌ Failed to start server:", error);
-    process.exit(1);
-  }
+        // Graceful shutdown
+        process.on("SIGTERM", async () => {
+            console.log("🛑 Received SIGTERM, shutting down gracefully...");
+            webSocketService.close();
+            await consumerManager.disconnectAll();
+            await kafkaService.disconnect();
+            process.exit(0);
+        });
+
+        process.on("SIGINT", async () => {
+            console.log("🛑 Received SIGINT, shutting down gracefully...");
+            webSocketService.close();
+            await consumerManager.disconnectAll();
+            await kafkaService.disconnect();
+            process.exit(0);
+        });
+
+    } catch (error) {
+        console.error("❌ Failed to start server:", error);
+        process.exit(1);
+    }
 }
 
 startServer();

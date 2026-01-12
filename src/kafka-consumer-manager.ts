@@ -44,20 +44,23 @@ export class KafkaConsumerManager {
     const groupId = consumer.getGroupId();
 
     try {
+      console.log(`\n📋 [ConsumerManager] Registering consumer for topic: ${topic}`);
+      console.log(`   └─ Group ID: ${groupId}`);
+
       // Create a new consumer for this topic
       const kafkaConsumer = this.kafka.consumer({ 
         groupId: groupId 
       });
 
       await kafkaConsumer.connect();
-      console.log(`✅ [ConsumerManager] Connected consumer for topic: ${topic}`);
+      console.log(`   ✅ Connected to Kafka broker`);
 
       // Subscribe to the topic
       await kafkaConsumer.subscribe({ 
         topic: topic,
         fromBeginning: false 
       });
-      console.log(`✅ [ConsumerManager] Subscribed to topic: ${topic} (groupId: ${groupId})`);
+      console.log(`   ✅ Subscribed to topic: "${topic}"`);
 
       // Store consumer and handler
       this.consumers.set(topic, kafkaConsumer);
@@ -75,7 +78,8 @@ export class KafkaConsumerManager {
         },
       });
 
-      console.log(`🚀 [ConsumerManager] Started consuming from topic: ${topic}`);
+      console.log(`   🚀 Started consuming messages from topic: "${topic}"`);
+      console.log(`   ✅ Consumer fully initialized and ready\n`);
     } catch (error) {
       console.error(`❌ [ConsumerManager] Error registering consumer for topic ${topic}:`, error);
       throw error;
@@ -156,5 +160,31 @@ export class KafkaConsumerManager {
    */
   getConsumerCount(): number {
     return this.consumers.size;
+  }
+
+  /**
+   * Print summary of all registered consumers and topics
+   */
+  printSummary(): void {
+    console.log(`\n${"=".repeat(60)}`);
+    console.log(`📊 KAFKA CONSUMER SUMMARY`);
+    console.log(`${"=".repeat(60)}`);
+    console.log(`Total Consumers: ${this.consumers.size}`);
+    console.log(`\nRegistered Topics:`);
+    
+    if (this.consumers.size === 0) {
+      console.log(`   ⚠️  No consumers registered`);
+    } else {
+      let index = 1;
+      for (const [topic, consumer] of this.consumers) {
+        const handler = this.consumerHandlers.get(topic);
+        const groupId = handler?.getGroupId() || "unknown";
+        console.log(`   ${index}. Topic: "${topic}"`);
+        console.log(`      └─ Group ID: ${groupId}`);
+        console.log(`      └─ Status: ✅ Active`);
+        index++;
+      }
+    }
+    console.log(`${"=".repeat(60)}\n`);
   }
 }

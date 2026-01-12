@@ -7,7 +7,7 @@
 
 export const KafkaTopics = {
   // WebSocket chat messages (for broadcasting)
-  WS_CHAT_MESSAGES: process.env.KAFKA_TOPIC || "messenger-ws.chat-messages",
+  WS_CHAT_MESSAGES: process.env.WS_CHAT_MESSAGES_TOPIC || "messenger-ws.chat-messages",
   
   // Chat room events from Spring Boot
   CHAT_ROOM: process.env.CHAT_ROOM_TOPIC || "messenger.chat-room",
