@@ -289,7 +289,9 @@
         </div>
         
         <div class="controls">
-            <input type="text" id="chatRoomIdInput" placeholder="Enter chat room ID" disabled>
+            <select id="chatRoomIdSelect" disabled>
+                <option value="">Select chat room...</option>
+            </select>
             <button id="joinRoomBtn" onclick="joinChatRoom()" disabled>Join Chat Room</button>
             <button id="leaveRoomBtn" onclick="leaveChatRoom()" disabled>Leave Chat Room</button>
             
@@ -366,8 +368,17 @@
             };
             
             ws.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                handleMessage(data);
+                try {
+                    const data = JSON.parse(event.data);
+                    // Debug logging for chat room messages
+                    if (data.type && (data.type.includes('chat-room') || data.type.includes('chat_room'))) {
+                        console.log('🔍 [WebSocket] Received chat room message:', data);
+                    }
+                    handleMessage(data);
+                } catch (error) {
+                    console.error('Error parsing message:', error, event.data);
+                    addMessage(`❌ Error parsing message: ${event.data}`, 'error');
+                }
             };
             
             ws.onclose = function() {
@@ -454,6 +465,11 @@
         }
         
         function handleMessage(data) {
+            // Debug: log all incoming messages with chat-room type
+            if (data.type && (data.type.includes('chat-room') || data.type.includes('chat_room'))) {
+                console.log('🔍 [handleMessage] Received message type:', data.type, 'Full data:', data);
+            }
+            
             switch(data.type) {
                 case 'welcome':
                     clientId = data.clientId;
@@ -497,14 +513,15 @@
                         addMessage(`👋 Client ${data.clientId} disconnected`, 'error');
                     }
                     break;
-                case 'chat-room-created':
+                case 'chat-room.created':
+                    console.log('✅ [handleMessage] Processing chat room created:', data);
                     // Immediately add the new chat room to the map
                     if (data.chatRoomId) {
                         const newRoom = {
                             participants: new Set(),
                             info: {
                                 chatRoomId: data.chatRoomId,
-                                type: data.type || 'unknown',
+                                type: data.type && data.type !== 'chat-room.created' ? data.type : (data.type || 'unknown'),  // Use room type, not message type
                                 name: data.name || 'Unnamed',
                                 participantIds: data.participantIds || [],
                                 createdAt: data.createdAt || Date.now()
@@ -512,6 +529,7 @@
                         };
                         chatRooms.set(data.chatRoomId, newRoom);
                         updateChatRoomsList();
+                        updateChatRoomDropdown();
                         
                         // Highlight the new room
                         setTimeout(() => {
@@ -523,7 +541,7 @@
                         }, 100);
                         
                         const roomName = data.name || data.chatRoomId;
-                        const roomType = data.type ? `[${data.type}]` : '';
+                        const roomType = data.type && data.type !== 'chat-room.created' ? `[${data.type}]` : '';
                         addMessage(`🏠 Chat room created: ${roomName} ${roomType}`, 'welcome');
                         showToast(`New chat room created: ${roomName}`, 'welcome');
                     }
@@ -533,11 +551,13 @@
                 case 'chat-room-joined':
                     joinedChatRooms.add(data.chatRoomId);
                     addMessage(`✅ Joined chat room: ${data.chatRoomId}`, 'welcome');
+                    updateChatRoomDropdown();
                     refreshStats();
                     break;
                 case 'chat-room-left':
                     joinedChatRooms.delete(data.chatRoomId);
                     addMessage(`👋 Left chat room: ${data.chatRoomId}`, 'error');
+                    updateChatRoomDropdown();
                     refreshStats();
                     break;
                 case 'chat-room-participants-online':
@@ -715,7 +735,7 @@
         }
         
         function joinChatRoom() {
-            const chatRoomId = document.getElementById('chatRoomIdInput').value;
+            const chatRoomId = document.getElementById('chatRoomIdSelect').value;
             if (chatRoomId && ws) {
                 ws.send(JSON.stringify({
                     type: 'join_chat_room',
@@ -726,13 +746,39 @@
         }
         
         function leaveChatRoom() {
-            const chatRoomId = document.getElementById('chatRoomIdInput').value;
+            const chatRoomId = document.getElementById('chatRoomIdSelect').value;
             if (chatRoomId && ws) {
                 ws.send(JSON.stringify({
                     type: 'leave_chat_room',
                     chatRoomId: chatRoomId
                 }));
                 addMessage(`📤 Leaving chat room: ${chatRoomId}`, 'message');
+            }
+        }
+        
+        function updateChatRoomDropdown() {
+            const select = document.getElementById('chatRoomIdSelect');
+            const currentValue = select.value;
+            
+            // Clear existing options except the first one
+            select.innerHTML = '<option value="">Select chat room...</option>';
+            
+            // Add all chat rooms as options
+            chatRooms.forEach((room, chatRoomId) => {
+                const roomInfo = room.info || {};
+                const roomName = roomInfo.name || chatRoomId;
+                const roomType = roomInfo.type ? `[${roomInfo.type}]` : '';
+                const isJoined = joinedChatRooms.has(chatRoomId) ? ' ✅' : '';
+                
+                const option = document.createElement('option');
+                option.value = chatRoomId;
+                option.textContent = `${roomName} ${roomType}${isJoined}`;
+                select.appendChild(option);
+            });
+            
+            // Restore previous selection if it still exists
+            if (currentValue && chatRooms.has(currentValue)) {
+                select.value = currentValue;
             }
         }
         
@@ -764,6 +810,7 @@
                         });
                     }
                     updateChatRoomsList();
+                    updateChatRoomDropdown();
                 })
                 .catch(error => {
                     console.error('Error fetching stats:', error);
@@ -816,7 +863,7 @@
                     // Click to join/leave
                     div.style.cursor = 'pointer';
                     div.onclick = () => {
-                        document.getElementById('chatRoomIdInput').value = chatRoomId;
+                        document.getElementById('chatRoomIdSelect').value = chatRoomId;
                         if (joinedChatRooms.has(chatRoomId)) {
                             leaveChatRoom();
                         } else {
@@ -832,7 +879,7 @@
         }
         
         function enableControls(enabled) {
-            const controls = ['chatRoomIdInput', 'joinRoomBtn', 'leaveRoomBtn', 'messageInput', 'broadcastBtn', 'targetInput', 'directMessageInput', 
+            const controls = ['chatRoomIdSelect', 'joinRoomBtn', 'leaveRoomBtn', 'messageInput', 'broadcastBtn', 'targetInput', 'directMessageInput', 
                             'directBtn', 'kickTargetInput', 'kickBtn', 'kickAllBtn'];
             controls.forEach(id => {
                 document.getElementById(id).disabled = !enabled;
@@ -852,11 +899,8 @@
             }
         });
         
-        document.getElementById('chatRoomIdInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                joinChatRoom();
-            }
-        });
+        // Update dropdown when chat rooms list changes
+        // (called from updateChatRoomsList and other places)
     </script>
 </body>
 </html>

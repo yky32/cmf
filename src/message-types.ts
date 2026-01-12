@@ -44,7 +44,7 @@ export enum ServerMessageType {
   /** Chat room message received */
   CHAT_ROOM_MESSAGE_RECEIVED = "chat-room-message-received",
   /** Chat room created notification */
-  CHAT_ROOM_CREATED = "chat-room-created",
+  CHAT_ROOM_CREATED = "chat-room.created",
   /** Successfully joined a chat room */
   CHAT_ROOM_JOINED = "chat-room-joined",
   /** Left a chat room */
