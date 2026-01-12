@@ -43,12 +43,12 @@ export class ChatRoomConsumer implements BaseConsumer {
     async handleMessage(message: any): Promise<void> {
         try {
             // Handle chat room creation event
-            if (message.chatRoomId || message.roomId || (message.type && message.type === "room.created")) {
+            if (message.chatRoomId || (message.type && message.type === "chat-room.created")) {
                 const chatRoomCreatedEvent = message as ChatRoomCreatedEvent;
-                const chatRoomId = chatRoomCreatedEvent.chatRoomId || message.roomId;
+                const chatRoomId = chatRoomCreatedEvent.chatRoomId;
                 
                 if (!chatRoomId) {
-                    console.warn(`⚠️ [ChatRoomConsumer] Received room event without chatRoomId:`, message);
+                    console.warn(`⚠️ [ChatRoomConsumer] Received chat room event without chatRoomId:`, message);
                     return;
                 }
                 

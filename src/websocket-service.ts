@@ -30,7 +30,7 @@ export class WebSocketService {
     this.kafkaService = config.kafkaService;
     this.chatRoomManager = new ChatRoomManager();
     
-    // Create HTTP server for health checks
+    // Create HTTP server for health checks and stats
     this.httpServer = createServer((req, res) => {
       if (req.url === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -40,6 +40,27 @@ export class WebSocketService {
           clients: this.clients.size,
           chatRooms: this.chatRoomManager.getChatRoomCount(),
           kafka: this.kafkaService ? 'connected' : 'disconnected'
+        }));
+      } else if (req.url === '/stats') {
+        // Get detailed chat room statistics
+        const allChatRooms = this.chatRoomManager.getAllChatRooms();
+        const chatRoomsStats = allChatRooms.map(chatRoomId => {
+          const participants = Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId));
+          const info = this.chatRoomManager.getChatRoomInfo(chatRoomId);
+          return {
+            chatRoomId,
+            participantCount: participants.length,
+            participants: participants,
+            info: info || null
+          };
+        });
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          timestamp: new Date().toISOString(),
+          totalClients: this.clients.size,
+          totalChatRooms: this.chatRoomManager.getChatRoomCount(),
+          chatRooms: chatRoomsStats
         }));
       } else {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -123,11 +144,11 @@ export class WebSocketService {
         break;
 
       case ClientMessageType.JOIN_CHAT_ROOM:
-        this.handleJoinRoom(clientId, message.chatRoomId || message.roomId || message.room_id);
+        this.handleJoinRoom(clientId, message.chatRoomId);
         break;
 
       case ClientMessageType.LEAVE_CHAT_ROOM:
-        this.handleLeaveRoom(clientId, message.chatRoomId || message.roomId || message.room_id);
+        this.handleLeaveRoom(clientId, message.chatRoomId);
         break;
 
       default:
@@ -287,7 +308,7 @@ export class WebSocketService {
       ...info
     });
     
-    console.log(`🏠 [WebSocketService] Chat room created: room_${chatRoomId}`);
+    console.log(`🏠 [WebSocketService] Chat room created: chat_room_${chatRoomId}`);
   }
 
   /**
@@ -313,7 +334,7 @@ export class WebSocketService {
    * Falls back to broadcasting to all if chatRoomId is not provided
    */
   broadcastChatMessage(message: any): void {
-    const chatRoomId = message.chatRoomId || message.roomId;
+    const chatRoomId = message.chatRoomId;
     
     if (chatRoomId) {
       // Broadcast to specific chat room

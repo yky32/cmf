@@ -2,7 +2,7 @@
  * Chat Room Manager
  * 
  * Manages chat rooms and chat room participants.
- * Chat room keys follow the format: "room_" + chatRoomId
+ * Chat room keys follow the format: "chat_room_" + chatRoomId
  */
 
 export interface ChatRoomInfo {
@@ -25,17 +25,17 @@ export class ChatRoomManager {
 
     /**
      * Generate chat room key from chat room ID
-     * Format: "room_" + chatRoomId
+     * Format: "chat_room_" + chatRoomId
      */
     static getChatRoomKey(chatRoomId: string): string {
-        return `room_${chatRoomId}`;
+        return `chat_room_${chatRoomId}`;
     }
 
     /**
      * Extract chat room ID from chat room key
      */
     static getChatRoomId(chatRoomKey: string): string {
-        return chatRoomKey.replace(/^room_/, "");
+        return chatRoomKey.replace(/^chat_room_/, "");
     }
 
     /**
