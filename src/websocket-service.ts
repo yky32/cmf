@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "http";
 import { KafkaService, KafkaMessage } from "./kafka-service";
 import { ClientMessageType, ServerMessageType, MessageType } from "./message-types";
+import { ChatRoomManager, ChatRoomInfo } from "./chat-room-manager";
 
 export interface WebSocketMessage {
   type: MessageType;
@@ -22,10 +23,12 @@ export class WebSocketService {
   private clientCounter = 1;
   private config: WebSocketServiceConfig;
   private readonly kafkaService: KafkaService;
+  private readonly chatRoomManager: ChatRoomManager;
 
   constructor(config: WebSocketServiceConfig) {
     this.config = config;
     this.kafkaService = config.kafkaService;
+    this.chatRoomManager = new ChatRoomManager();
     
     // Create HTTP server for health checks
     this.httpServer = createServer((req, res) => {
@@ -35,6 +38,7 @@ export class WebSocketService {
           status: 'healthy', 
           timestamp: new Date().toISOString(),
           clients: this.clients.size,
+          chatRooms: this.chatRoomManager.getChatRoomCount(),
           kafka: this.kafkaService ? 'connected' : 'disconnected'
         }));
       } else {
@@ -79,6 +83,9 @@ export class WebSocketService {
       });
 
       ws.on("close", () => {
+        // Remove client from all chat rooms
+        this.chatRoomManager.leaveAllChatRooms(clientId);
+        
         this.clients.delete(clientId);
         console.log(`❌ ${clientId} disconnected`);
         
@@ -89,6 +96,7 @@ export class WebSocketService {
 
       ws.on("error", (error) => {
         console.error(`❌ WebSocket error for ${clientId}:`, error);
+        this.chatRoomManager.leaveAllChatRooms(clientId);
         this.clients.delete(clientId);
         this.broadcastClientDisconnected(clientId);
         this.broadcastClientList();
@@ -112,6 +120,14 @@ export class WebSocketService {
 
       case ClientMessageType.KICK_ALL:
         this.handleKickAllClients(clientId);
+        break;
+
+      case ClientMessageType.JOIN_CHAT_ROOM:
+        this.handleJoinRoom(clientId, message.chatRoomId || message.roomId || message.room_id);
+        break;
+
+      case ClientMessageType.LEAVE_CHAT_ROOM:
+        this.handleLeaveRoom(clientId, message.chatRoomId || message.roomId || message.room_id);
         break;
 
       default:
@@ -192,10 +208,134 @@ export class WebSocketService {
     }
   }
 
-  // Public method to broadcast chat messages (called from server.ts)
+  /**
+   * Handle join chat room request from client
+   */
+  private handleJoinRoom(clientId: string, chatRoomId: string | undefined): void {
+    if (!chatRoomId) {
+      const client = this.clients.get(clientId);
+      if (client) {
+        this.sendToClient(client, { 
+          type: ServerMessageType.ERROR, 
+          message: "chatRoomId is required" 
+        });
+      }
+      return;
+    }
+
+    const success = this.chatRoomManager.joinChatRoom(clientId, chatRoomId);
+    const client = this.clients.get(clientId);
+    
+    if (client && success) {
+      // Send confirmation
+      this.sendToClient(client, {
+        type: ServerMessageType.CHAT_ROOM_JOINED,
+        chatRoomId: chatRoomId,
+        message: `Successfully joined chat room ${chatRoomId}`
+      });
+
+      // Send current online participants in the chat room
+      const participants = Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId));
+      this.sendToClient(client, {
+        type: ServerMessageType.CHAT_ROOM_PARTICIPANTS_ONLINE,
+        chatRoomId: chatRoomId,
+        participants: participants
+      });
+
+      console.log(`✅ [WebSocketService] Client ${clientId} joined chat room ${chatRoomId}`);
+    }
+  }
+
+  /**
+   * Handle leave chat room request from client
+   */
+  private handleLeaveRoom(clientId: string, chatRoomId: string | undefined): void {
+    if (!chatRoomId) {
+      const client = this.clients.get(clientId);
+      if (client) {
+        this.sendToClient(client, { 
+          type: ServerMessageType.ERROR, 
+          message: "chatRoomId is required" 
+        });
+      }
+      return;
+    }
+
+    this.chatRoomManager.leaveChatRoom(clientId, chatRoomId);
+    const client = this.clients.get(clientId);
+    
+    if (client) {
+      this.sendToClient(client, {
+        type: ServerMessageType.CHAT_ROOM_LEFT,
+        chatRoomId: chatRoomId,
+        message: `Left chat room ${chatRoomId}`
+      });
+      console.log(`👋 [WebSocketService] Client ${clientId} left chat room ${chatRoomId}`);
+    }
+  }
+
+  /**
+   * Create a chat room (called when Spring Boot creates a chat room via Kafka)
+   */
+  createChatRoom(chatRoomId: string, info?: Partial<ChatRoomInfo>): void {
+    this.chatRoomManager.createChatRoom(chatRoomId, info);
+    
+    // Notify all clients that a new chat room was created
+    this.broadcastToAll({
+      type: ServerMessageType.CHAT_ROOM_CREATED,
+      chatRoomId: chatRoomId,
+      ...info
+    });
+    
+    console.log(`🏠 [WebSocketService] Chat room created: room_${chatRoomId}`);
+  }
+
+  /**
+   * Broadcast chat room message to a specific chat room (not all clients)
+   */
+  broadcastToChatRoom(chatRoomId: string, message: any): void {
+    const participants = this.chatRoomManager.getChatRoomParticipants(chatRoomId);
+    let sentCount = 0;
+
+    for (const clientId of participants) {
+      const client = this.clients.get(clientId);
+      if (client) {
+        this.sendToClient(client, message);
+        sentCount++;
+      }
+    }
+
+    console.log(`📤 [WebSocketService] Broadcasted to chat room ${chatRoomId}: ${sentCount} participants`);
+  }
+
+  /**
+   * Broadcast chat room message to a specific chat room
+   * Falls back to broadcasting to all if chatRoomId is not provided
+   */
   broadcastChatMessage(message: any): void {
-    this.broadcastToAll(message);
-    console.log(`📤 Broadcasted chat message to ${this.clients.size} clients`);
+    const chatRoomId = message.chatRoomId || message.roomId;
+    
+    if (chatRoomId) {
+      // Broadcast to specific chat room
+      this.broadcastToChatRoom(chatRoomId, {
+        type: ServerMessageType.CHAT_ROOM_MESSAGE_RECEIVED,
+        ...message
+      });
+    } else {
+      // Fallback: broadcast to all (backward compatibility)
+      this.broadcastToAll({
+        type: ServerMessageType.CHAT_ROOM_MESSAGE_RECEIVED,
+        ...message
+      });
+      console.log(`📤 [WebSocketService] Broadcasted chat room message to all ${this.clients.size} clients (no chatRoomId)`);
+    }
+  }
+
+  /**
+   * Get chat room manager instance (for consumers to use)
+   */
+  getChatRoomManager(): ChatRoomManager {
+    return this.chatRoomManager;
   }
 
   private broadcastClientList(): void {

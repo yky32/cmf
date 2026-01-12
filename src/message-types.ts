@@ -17,6 +17,10 @@ export enum ClientMessageType {
   KICK_ONE = "kick-one",
   /** Disconnect all connected clients */
   KICK_ALL = "kick-all",
+  /** Join a chat room */
+  JOIN_CHAT_ROOM = "join_chat_room",
+  /** Leave a chat room */
+  LEAVE_CHAT_ROOM = "leave_chat_room",
 }
 
 /**
@@ -37,6 +41,16 @@ export enum ServerMessageType {
   CLIENT_CONNECTED = "client-connected",
   /** Notification of a client disconnection */
   CLIENT_DISCONNECTED = "client-disconnected",
+  /** Chat room message received */
+  CHAT_ROOM_MESSAGE_RECEIVED = "chat-room-message-received",
+  /** Chat room created notification */
+  CHAT_ROOM_CREATED = "chat-room-created",
+  /** Successfully joined a chat room */
+  CHAT_ROOM_JOINED = "chat-room-joined",
+  /** Left a chat room */
+  CHAT_ROOM_LEFT = "chat-room-left",
+  /** Online participants in a chat room */
+  CHAT_ROOM_PARTICIPANTS_ONLINE = "chat-room-participants-online",
 }
 
 /**

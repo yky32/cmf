@@ -3,7 +3,7 @@ import {WebSocketService} from "../websocket-service";
 import {KafkaTopics} from "../kafka-topics";
 
 /**
- * ChatMessageEvent from Spring Boot
+ * ChatMessageEvent from Spring Boot (for chat messages)
  */
 export interface ChatMessageEvent {
     chatRoomId: string;
@@ -11,6 +11,17 @@ export interface ChatMessageEvent {
     to?: string;
     content: string;
     sentTimestamp: number;
+}
+
+/**
+ * RoomCreatedEvent from Spring Boot (for room creation)
+ */
+export interface RoomCreatedEvent {
+    roomId: string;
+    type?: string;
+    name?: string;
+    participantIds?: string[];
+    createdAt?: number;
 }
 
 /**
@@ -35,21 +46,40 @@ export class ChatRoomConsumer implements BaseConsumer {
 
     async handleMessage(message: any): Promise<void> {
         try {
-            const event: ChatMessageEvent = message;
+            // Check if this is a room creation event or a chat message event
+            if (message.roomId || (message.type && message.type === "room.created")) {
+                // Handle room creation event
+                const roomEvent: RoomCreatedEvent = message;
+                const roomId = roomEvent.roomId || message.roomId;
+                
+                console.log(`🏠 [ChatRoomConsumer] Received chat room creation event: Chat Room ${roomId}`);
+                
+                // Create chat room in CMF
+                this.webSocketService.createChatRoom(roomId, {
+                    type: roomEvent.type,
+                    name: roomEvent.name,
+                    participantIds: roomEvent.participantIds
+                });
+                
+                console.log(`✅ [ChatRoomConsumer] Chat room ${roomId} created in CMF`);
+            } else {
+                // Handle chat message event
+                const event: ChatMessageEvent = message;
+                
+                console.log(`📥 [ChatRoomConsumer] Received chat room message: Chat Room ${event.chatRoomId}, From: ${event.from}`);
 
-            console.log(`📥 [ChatRoomConsumer] Received event: Room ${event.chatRoomId}, From: ${event.from}`);
+                // Broadcast to specific chat room (not all clients)
+                this.webSocketService.broadcastChatMessage({
+                    chatRoomId: event.chatRoomId,
+                    from: event.from,
+                    to: event.to,
+                    message: event.content,
+                    content: event.content,
+                    timestamp: event.sentTimestamp
+                });
 
-            // Broadcast to all connected WebSocket clients
-            this.webSocketService.broadcastChatMessage({
-                type: "kafka",
-                chatRoomId: event.chatRoomId,
-                from: event.from,
-                to: event.to,
-                message: event.content,
-                timestamp: event.sentTimestamp
-            });
-
-            console.log(`📤 [ChatRoomConsumer] Broadcasted message to WebSocket clients`);
+                console.log(`📤 [ChatRoomConsumer] Broadcasted chat room message to chat room ${event.chatRoomId}`);
+            }
         } catch (error) {
             console.error(`❌ [ChatRoomConsumer] Error processing message:`, error);
             throw error;
