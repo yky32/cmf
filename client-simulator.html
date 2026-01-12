@@ -6,28 +6,52 @@
     <title>WebSocket Simulator Client</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .header {
+            background: white;
+            padding: 20px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-bottom: 3px solid #667eea;
+            flex-shrink: 0;
+        }
+        .content-wrapper {
+            display: flex;
+            flex: 1;
             gap: 20px;
+            padding: 20px;
+            overflow: hidden;
+            min-height: 0;
         }
         .main-container {
-            flex: 1;
-            max-width: 600px;
+            flex: 2;
+            min-width: 0;
             background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
         .sidebar {
-            width: 300px;
+            flex: 1;
+            min-width: 300px;
+            max-width: 400px;
             background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            height: fit-content;
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
         }
         .status {
             padding: 10px;
@@ -38,54 +62,121 @@
         .connected { background-color: #d4edda; color: #155724; }
         .disconnected { background-color: #f8d7da; color: #721c24; }
         .messages {
-            height: 300px;
+            flex: 1;
+            min-height: 0;
             overflow-y: auto;
-            border: 1px solid #ddd;
-            padding: 10px;
-            background-color: #f8f9fa;
-            margin-bottom: 20px;
+            border: 2px solid #e2e8f0;
+            padding: 15px;
+            background: linear-gradient(to bottom, #f7fafc, #edf2f7);
+            margin-bottom: 25px;
+            border-radius: 12px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
+        }
+        .messages::-webkit-scrollbar {
+            width: 8px;
+        }
+        .messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .messages::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .messages::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
         .message {
-            margin-bottom: 10px;
-            padding: 8px;
-            border-radius: 4px;
-            font-size: 16px;
-            line-height: 1.4;
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.6;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease;
+        }
+        .message:hover {
+            transform: translateX(4px);
         }
         .message .timestamp {
-            color: #6c757d;
-            font-weight: bold;
+            color: #718096;
+            font-weight: 600;
             font-size: 11px;
+            margin-right: 8px;
         }
-        .message.kafka { background-color: #e3f2fd; }
-        .message.direct { background-color: #f3e5f5; }
-        .message.welcome { background-color: #e8f5e8; }
-        .message.error { background-color: #ffebee; }
+        .message.kafka { 
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+            border-left: 4px solid #0ea5e9;
+        }
+        .message.direct { 
+            background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
+            border-left: 4px solid #a855f7;
+        }
+        .message.welcome { 
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            border-left: 4px solid #10b981;
+        }
+        .message.error { 
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border-left: 4px solid #ef4444;
+        }
         .controls {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
             gap: 10px;
-            margin-bottom: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        .control-group h4 {
+            margin: 0 0 12px 0;
+            color: #2d3748;
+            font-size: 16px;
+            font-weight: 600;
         }
         input, button, select {
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
         select {
             background-color: white;
-            min-width: 200px;
+            cursor: pointer;
         }
         button {
-            background-color: #007bff;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             cursor: pointer;
             border: none;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
-        button:hover { background-color: #0056b3; }
+        button:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        button:active {
+            transform: translateY(0);
+        }
         button:disabled {
-            background-color: #6c757d;
+            background: #cbd5e0;
             cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
         }
         .client-info {
             background-color: #e9ecef;
@@ -252,17 +343,27 @@
         }
         
         /* Responsive design */
-        @media (max-width: 768px) {
-            body {
+        @media (max-width: 1200px) {
+            .content-wrapper {
                 flex-direction: column;
-                padding: 10px;
             }
             .sidebar {
-                width: 100%;
-                order: -1;
-            }
-            .main-container {
                 max-width: none;
+                width: 100%;
+            }
+            .controls {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 768px) {
+            .header {
+                padding: 15px 20px;
+            }
+            .content-wrapper {
+                padding: 10px;
+            }
+            .main-container, .sidebar {
+                padding: 20px;
             }
             .toast-container {
                 bottom: 10px;
@@ -274,19 +375,33 @@
     </style>
 </head>
 <body>
-    <div class="main-container">
-        <h1>🚀 WebSocket Simulator Client</h1>
-        <div style="text-align: center; color: #6c757d; font-size: 12px; margin-bottom: 15px;">
-            📍 Timezone: Hong Kong Time (HKT)
+    <div class="header">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+            <div>
+                <h1 style="margin: 0; color: #2d3748; font-size: 28px; font-weight: 700;">🚀 WebSocket Simulator Client</h1>
+                <div style="color: #6c757d; font-size: 12px; margin-top: 5px;">
+                    📍 Timezone: Hong Kong Time (HKT)
+                </div>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <div id="status" class="status disconnected" style="margin: 0;">
+                    Disconnected
+                </div>
+                <button id="connectBtn" onclick="connect()" style="padding: 12px 24px; font-size: 14px; font-weight: 700; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); transition: all 0.3s ease;">
+                    🔌 Connect
+                </button>
+                <button id="disconnectBtn" onclick="disconnect()" disabled style="padding: 12px 24px; font-size: 14px; font-weight: 700; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); transition: all 0.3s ease;">
+                    ❌ Disconnect
+                </button>
+            </div>
         </div>
-        
-        <div id="status" class="status disconnected">
-            Disconnected
-        </div>
-        
-        <div id="clientInfo" class="client-info" style="display: none;">
+        <div id="clientInfo" class="client-info" style="display: none; margin-top: 15px;">
             <strong>Client ID:</strong> <span id="clientId"></span>
         </div>
+    </div>
+    
+    <div class="content-wrapper">
+        <div class="main-container">
         
         <div class="controls">
             <select id="chatRoomIdSelect" disabled>
@@ -295,8 +410,20 @@
             <button id="joinRoomBtn" onclick="joinChatRoom()" disabled>Join Chat Room</button>
             <button id="leaveRoomBtn" onclick="leaveChatRoom()" disabled>Leave Chat Room</button>
             
-            <input type="text" id="messageInput" placeholder="Enter message to broadcast" disabled>
-            <button id="broadcastBtn" onclick="broadcastMessage()" disabled>Broadcast to All</button>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+                <h4 style="margin: 0 0 10px 0; font-size: 14px;">💬 Send Message to Chat Room</h4>
+                <select id="chatRoomMessageSelect" disabled>
+                    <option value="">Select chat room...</option>
+                </select>
+                <input type="text" id="chatRoomMessageInput" placeholder="Enter message for chat room" disabled style="margin-top: 5px; width: 100%;">
+                <button id="sendChatRoomMessageBtn" onclick="sendChatRoomMessage()" disabled style="margin-top: 5px;">Send to Chat Room</button>
+            </div>
+            
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd; grid-column: 1 / -1;">
+                <h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #2d3748;">📢 Broadcast to All</h4>
+                <input type="text" id="messageInput" placeholder="Enter message to broadcast" disabled style="width: 100%; margin-bottom: 8px;">
+                <button id="broadcastBtn" onclick="broadcastMessage()" disabled style="width: 100%;">Broadcast to All</button>
+            </div>
             
             <select id="targetInput" disabled>
                 <option value="">Select target client...</option>
@@ -312,13 +439,10 @@
             <button id="kickAllBtn" onclick="kickAllClients()" disabled>Kick All Clients</button>
         </div>
         
-        <div id="messages" class="messages"></div>
+            <div id="messages" class="messages"></div>
+        </div>
         
-        <button id="connectBtn" onclick="connect()">Connect</button>
-        <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
-    </div>
-    
-    <div class="sidebar">
+        <div class="sidebar">
         <div id="clientList" class="client-list" style="display: none;">
             <h3>👥 Connected Clients</h3>
             <div id="clientCount" class="client-count">0 clients connected</div>
@@ -331,75 +455,82 @@
             <div id="chatRoomItems"></div>
         </div>
         
-        <div class="client-list" style="margin-top: 20px;">
-            <h3>📊 Stats</h3>
-            <button onclick="refreshStats()" style="width: 100%; margin-bottom: 10px;">🔄 Refresh Stats</button>
-            <div id="statsInfo" style="font-size: 12px; color: #6c757d;">
-                Click to refresh
-            </div>
-        </div>
+    </div>
     </div>
     
     <!-- Toast notifications container -->
     <div id="toastContainer" class="toast-container"></div>
 
     <script>
+        // Track joined rooms in memory only (from WebSocket events)
+        let joinedChatRooms = new Set();
+        
         let ws = null;
         let clientId = null;
         let connectedClients = new Set();
         let toastCounter = 0;
         let chatRooms = new Map(); // Map<chatRoomId, {participants: Set, info: {}}>
-        let joinedChatRooms = new Set(); // Chat rooms this client has joined
-        let statsRefreshInterval = null;
         
         function connect() {
-            ws = new WebSocket('ws://localhost:8088');
-            //ws = new WebSocket('wss://api.tgt.gg/cmf');
-            
-            ws.onopen = function() {
-                updateStatus('Connected', 'connected');
-                document.getElementById('connectBtn').disabled = true;
-                document.getElementById('disconnectBtn').disabled = false;
-                enableControls(true);
-                addMessage('Connected to WebSocket server', 'welcome');
-                refreshStats();
-                // Auto-refresh stats every 2 seconds
-                statsRefreshInterval = setInterval(refreshStats, 2000);
-            };
-            
-            ws.onmessage = function(event) {
-                try {
-                    const data = JSON.parse(event.data);
-                    // Debug logging for chat room messages
-                    if (data.type && (data.type.includes('chat-room') || data.type.includes('chat_room'))) {
-                        console.log('🔍 [WebSocket] Received chat room message:', data);
+            try {
+                updateStatus('Connecting...', 'disconnected');
+                ws = new WebSocket('ws://localhost:8088');
+                //ws = new WebSocket('wss://api.tgt.gg/cmf');
+                
+                ws.onopen = function() {
+                    console.log('✅ WebSocket connection opened');
+                    updateStatus('Connected', 'connected');
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                    enableControls(true);
+                    addMessage('Connected to WebSocket server', 'welcome');
+                    refreshStats();
+                };
+                
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        // Debug logging for chat room messages
+                        if (data.type && (data.type.includes('chat-room') || data.type.includes('chat_room'))) {
+                            console.log('🔍 [WebSocket] Received chat room message:', data);
+                        }
+                        handleMessage(data);
+                    } catch (error) {
+                        console.error('Error parsing message:', error, event.data);
+                        addMessage(`❌ Error parsing message: ${event.data}`, 'error');
                     }
-                    handleMessage(data);
-                } catch (error) {
-                    console.error('Error parsing message:', error, event.data);
-                    addMessage(`❌ Error parsing message: ${event.data}`, 'error');
-                }
-            };
-            
-            ws.onclose = function() {
-                updateStatus('Disconnected', 'disconnected');
-                document.getElementById('connectBtn').disabled = false;
-                document.getElementById('disconnectBtn').disabled = true;
-                enableControls(false);
+                };
+                
+                ws.onclose = function(event) {
+                    console.log('🔌 WebSocket connection closed:', event.code, event.reason);
+                    updateStatus('Disconnected', 'disconnected');
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    enableControls(false);
                 connectedClients.clear();
+                // Clear joined rooms on disconnect - will be re-fetched from server on reconnect
                 joinedChatRooms.clear();
                 updateClientList();
-                updateChatRoomsList();
-                addMessage('Disconnected from server', 'error');
-                if (statsRefreshInterval) {
-                    clearInterval(statsRefreshInterval);
-                    statsRefreshInterval = null;
-                }
-            };
-            
-            ws.onerror = function(error) {
-                addMessage('Error: ' + error, 'error');
-            };
+                    updateChatRoomsList();
+                    
+                    if (event.code === 1006) {
+                        addMessage('❌ Connection closed unexpectedly. Server may be down.', 'error');
+                    } else {
+                        addMessage('Disconnected from server', 'error');
+                    }
+                    
+                };
+                
+                ws.onerror = function(error) {
+                    console.error('❌ WebSocket error:', error);
+                    updateStatus('Connection Error', 'disconnected');
+                    addMessage('❌ WebSocket connection error. Is the server running on ws://localhost:8088?', 'error');
+                };
+            } catch (error) {
+                console.error('❌ Failed to create WebSocket:', error);
+                updateStatus('Connection Failed', 'disconnected');
+                addMessage(`❌ Failed to connect: ${error.message}`, 'error');
+            }
         }
         
         function disconnect() {
@@ -478,6 +609,7 @@
                     document.getElementById('clientInfo').style.display = 'block';
                     addMessage(`Welcome! Your client ID is: ${clientId}`, 'welcome');
                     updateClientList();
+                    // Request current chat rooms and joined rooms from server
                     break;
                 case 'kafka':
                     addMessage(`📥 Kafka Message: ${data.message}`, 'kafka');
@@ -530,6 +662,7 @@
                         chatRooms.set(data.chatRoomId, newRoom);
                         updateChatRoomsList();
                         updateChatRoomDropdown();
+                        updateChatRoomMessageDropdown();
                         
                         // Highlight the new room
                         setTimeout(() => {
@@ -540,25 +673,25 @@
                             }
                         }, 100);
                         
-                        const roomName = data.name || data.chatRoomId;
+                        // Always show chatRoomId, use name as additional info if available
+                        const displayName = data.name ? `${data.name} (${data.chatRoomId})` : data.chatRoomId;
                         const roomType = data.type && data.type !== 'chat-room.created' ? `[${data.type}]` : '';
-                        addMessage(`🏠 Chat room created: ${roomName} ${roomType}`, 'welcome');
-                        showToast(`New chat room created: ${roomName}`, 'welcome');
+                        addMessage(`🏠 Chat room created: ${displayName} ${roomType}`, 'welcome');
+                        showToast(`New chat room created: ${displayName}`, 'welcome');
                     }
                     // Also refresh stats to get participant counts
-                    refreshStats();
                     break;
                 case 'chat-room-joined':
                     joinedChatRooms.add(data.chatRoomId);
                     addMessage(`✅ Joined chat room: ${data.chatRoomId}`, 'welcome');
                     updateChatRoomDropdown();
-                    refreshStats();
+                    updateChatRoomMessageDropdown();
                     break;
                 case 'chat-room-left':
                     joinedChatRooms.delete(data.chatRoomId);
                     addMessage(`👋 Left chat room: ${data.chatRoomId}`, 'error');
                     updateChatRoomDropdown();
-                    refreshStats();
+                    updateChatRoomMessageDropdown();
                     break;
                 case 'chat-room-participants-online':
                     if (data.chatRoomId && data.participants) {
@@ -758,6 +891,8 @@
         
         function updateChatRoomDropdown() {
             const select = document.getElementById('chatRoomIdSelect');
+            if (!select) return;
+            
             const currentValue = select.value;
             
             // Clear existing options except the first one
@@ -766,13 +901,14 @@
             // Add all chat rooms as options
             chatRooms.forEach((room, chatRoomId) => {
                 const roomInfo = room.info || {};
-                const roomName = roomInfo.name || chatRoomId;
+                // Always show chatRoomId, use name as additional info if available
+                const displayName = roomInfo.name ? `${roomInfo.name} (${chatRoomId})` : chatRoomId;
                 const roomType = roomInfo.type ? `[${roomInfo.type}]` : '';
                 const isJoined = joinedChatRooms.has(chatRoomId) ? ' ✅' : '';
                 
                 const option = document.createElement('option');
                 option.value = chatRoomId;
-                option.textContent = `${roomName} ${roomType}${isJoined}`;
+                option.textContent = `${displayName} ${roomType}${isJoined}`;
                 select.appendChild(option);
             });
             
@@ -782,35 +918,115 @@
             }
         }
         
+        function updateChatRoomMessageDropdown() {
+            const select = document.getElementById('chatRoomMessageSelect');
+            if (!select) return;
+            
+            const currentValue = select.value;
+            
+            // Clear existing options except the first one
+            select.innerHTML = '<option value="">Select chat room...</option>';
+            
+            // Add all chat rooms as options (only show joined rooms for sending messages)
+            chatRooms.forEach((room, chatRoomId) => {
+                // Only show rooms that the user has joined
+                if (!joinedChatRooms.has(chatRoomId)) {
+                    return;
+                }
+                
+                const roomInfo = room.info || {};
+                // Always show chatRoomId, use name as additional info if available
+                const displayName = roomInfo.name ? `${roomInfo.name} (${chatRoomId})` : chatRoomId;
+                const roomType = roomInfo.type ? `[${roomInfo.type}]` : '';
+                
+                const option = document.createElement('option');
+                option.value = chatRoomId;
+                option.textContent = `${displayName} ${roomType}`;
+                select.appendChild(option);
+            });
+            
+            // Restore previous selection if it still exists
+            if (currentValue && chatRooms.has(currentValue) && joinedChatRooms.has(currentValue)) {
+                select.value = currentValue;
+            }
+        }
+        
+        function sendChatRoomMessage() {
+            const chatRoomId = document.getElementById('chatRoomMessageSelect').value;
+            const message = document.getElementById('chatRoomMessageInput').value;
+            
+            if (!chatRoomId) {
+                addMessage('❌ Please select a chat room', 'error');
+                return;
+            }
+            
+            if (!message || !message.trim()) {
+                addMessage('❌ Please enter a message', 'error');
+                return;
+            }
+            
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                addMessage('❌ Not connected to WebSocket', 'error');
+                return;
+            }
+            
+            // Check if user has joined the room
+            if (!joinedChatRooms.has(chatRoomId)) {
+                addMessage(`❌ You must join chat room ${chatRoomId} first`, 'error');
+                return;
+            }
+            
+            // Send message to chat room
+            // Note: This would typically go through Spring Boot API, but for simulator we can send via WebSocket
+            // In production, this should be a REST API call to Spring Boot
+            ws.send(JSON.stringify({
+                type: 'send_chat_room_message',
+                chatRoomId: chatRoomId,
+                message: message.trim()
+            }));
+            
+            addMessage(`📤 Sent message to chat room ${chatRoomId}: ${message}`, 'message');
+            document.getElementById('chatRoomMessageInput').value = '';
+        }
+        
         function refreshStats() {
+            if (!clientId) {
+                // Not connected yet, skip stats refresh
+                return;
+            }
+            
             fetch('http://localhost:8088/stats')
                 .then(response => response.json())
                 .then(data => {
-                    // Update stats display
-                    const statsInfo = document.getElementById('statsInfo');
-                    statsInfo.innerHTML = `
-                        <div><strong>Total Clients:</strong> ${data.totalClients}</div>
-                        <div><strong>Total Chat Rooms:</strong> ${data.totalChatRooms}</div>
-                        <div style="margin-top: 10px; font-size: 11px; color: #6c757d;">
-                            Last updated: ${new Date(data.timestamp).toLocaleTimeString()}
-                        </div>
-                    `;
-                    
                     // Update chat rooms - merge with existing to preserve info
                     if (data.chatRooms && Array.isArray(data.chatRooms)) {
+                        // Sync joined rooms from server (check if current clientId is in participants)
+                        const serverJoinedRooms = new Set();
+                        
                         data.chatRooms.forEach(room => {
                             const existing = chatRooms.get(room.chatRoomId);
+                            const participants = new Set(room.participants || []);
+                            
+                            // Check if current client is in this room's participants
+                            if (participants.has(clientId)) {
+                                serverJoinedRooms.add(room.chatRoomId);
+                            }
+                            
                             chatRooms.set(room.chatRoomId, {
-                                participants: new Set(room.participants || []),
+                                participants: participants,
                                 info: existing?.info || room.info || {
                                     chatRoomId: room.chatRoomId,
                                     createdAt: Date.now()
                                 }
                             });
                         });
+                        
+                        // Sync joined rooms from server state
+                        joinedChatRooms = serverJoinedRooms;
                     }
                     updateChatRoomsList();
                     updateChatRoomDropdown();
+                    updateChatRoomMessageDropdown();
                 })
                 .catch(error => {
                     console.error('Error fetching stats:', error);
@@ -839,13 +1055,14 @@
                     const participantsList = Array.from(room.participants).join(', ') || 'None';
                     const isJoined = joinedChatRooms.has(chatRoomId) ? ' ✅ Joined' : '';
                     const roomInfo = room.info || {};
-                    const roomName = roomInfo.name || chatRoomId;
+                    // Always show chatRoomId, use name as additional info if available
+                    const displayName = roomInfo.name ? `${roomInfo.name} (${chatRoomId})` : chatRoomId;
                     const roomType = roomInfo.type ? `[${roomInfo.type}]` : '';
                     const participantIds = roomInfo.participantIds || [];
                     
                     div.innerHTML = `
                         <div style="font-weight: bold; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;">
-                            <span>🏠 ${roomName}${isJoined}</span>
+                            <span>🏠 ${displayName}${isJoined}</span>
                             <span style="font-size: 10px; color: #6c757d; font-weight: normal;">${roomType}</span>
                         </div>
                         <div style="font-size: 11px; color: #999; margin-bottom: 3px;">
@@ -879,10 +1096,14 @@
         }
         
         function enableControls(enabled) {
-            const controls = ['chatRoomIdSelect', 'joinRoomBtn', 'leaveRoomBtn', 'messageInput', 'broadcastBtn', 'targetInput', 'directMessageInput', 
+            const controls = ['chatRoomIdSelect', 'joinRoomBtn', 'leaveRoomBtn', 'chatRoomMessageSelect', 'chatRoomMessageInput', 'sendChatRoomMessageBtn', 
+                            'messageInput', 'broadcastBtn', 'targetInput', 'directMessageInput', 
                             'directBtn', 'kickTargetInput', 'kickBtn', 'kickAllBtn'];
             controls.forEach(id => {
-                document.getElementById(id).disabled = !enabled;
+                const element = document.getElementById(id);
+                if (element) {
+                    element.disabled = !enabled;
+                }
             });
         }
         

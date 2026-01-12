@@ -3,12 +3,16 @@ import {WebSocketService} from "../websocket-service";
 import {KafkaTopics} from "../kafka-topics";
 
 /**
- * ChatMessageEvent interface for backward compatibility
+ * ChatMessageEvent from Spring Boot
+ * Contains chat room message information
  */
 export interface ChatMessageEvent {
-    from: string;
-    message: string;
+    chatRoomId: string;  // Required: which chat room this message belongs to
+    from: string;        // User ID who sent the message
+    message?: string;    // Message content (optional, could be in 'content' field)
+    content?: string;    // Alternative field name for message content
     timestamp?: number;
+    sentTimestamp?: number;  // Alternative field name for timestamp
 }
 
 /**
@@ -35,18 +39,29 @@ export class ChatMessageConsumer implements BaseConsumer {
     async handleMessage(message: any): Promise<void> {
         try {
             const chatMessage: ChatMessageEvent = message;
+            const chatRoomId = chatMessage.chatRoomId;
 
-            console.log(`📥 [ChatMessageConsumer] Received message from: ${chatMessage.from}`);
+            if (!chatRoomId) {
+                console.warn(`⚠️ [ChatMessageConsumer] Received message without chatRoomId:`, message);
+                return;
+            }
 
-            // Broadcast to all connected WebSocket clients
+            // Get message content (support both 'message' and 'content' fields)
+            const messageContent = chatMessage.message || chatMessage.content || '';
+            const timestamp = chatMessage.timestamp || chatMessage.sentTimestamp || Date.now();
+
+            console.log(`📥 [ChatMessageConsumer] Received message for chat room ${chatRoomId} from: ${chatMessage.from}`);
+
+            // Broadcast to participants in the specific chat room only
             this.webSocketService.broadcastChatMessage({
-                type: "kafka",
+                chatRoomId: chatRoomId,
                 from: chatMessage.from,
-                message: chatMessage.message,
-                timestamp: chatMessage.timestamp || Date.now()
+                message: messageContent,
+                content: messageContent,  // Include both for compatibility
+                timestamp: timestamp
             });
 
-            console.log(`📤 [ChatMessageConsumer] Broadcasted message to WebSocket clients`);
+            console.log(`📤 [ChatMessageConsumer] Broadcasted message to chat room ${chatRoomId} participants`);
         } catch (error) {
             console.error(`❌ [ChatMessageConsumer] Error processing message:`, error);
             throw error;
