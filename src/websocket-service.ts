@@ -44,24 +44,11 @@ export class WebSocketService {
     });
     
     this.wss = new WebSocketServer({ server: this.httpServer });
-    this.setupKafkaMessageHandler();
     this.setupWebSocketHandlers();
     
     // Start the server
     this.httpServer.listen(config.port, () => {
       console.log(`🌐 HTTP server listening on port ${config.port}`);
-    });
-  }
-
-  private setupKafkaMessageHandler(): void {
-    this.kafkaService.onMessage((kafkaMessage: KafkaMessage) => {
-      // Broadcast Kafka message to all connected WebSocket clients
-      this.broadcastToAll({
-        type: ServerMessageType.KAFKA,
-        from: kafkaMessage.from,
-        message: kafkaMessage.message,
-        timestamp: kafkaMessage.timestamp || Date.now()
-      });
     });
   }
 
@@ -203,6 +190,12 @@ export class WebSocketService {
     for (const [, client] of this.clients) {
       this.sendToClient(client, message);
     }
+  }
+
+  // Public method to broadcast chat messages (called from server.ts)
+  broadcastChatMessage(message: any): void {
+    this.broadcastToAll(message);
+    console.log(`📤 Broadcasted chat message to ${this.clients.size} clients`);
   }
 
   private broadcastClientList(): void {
