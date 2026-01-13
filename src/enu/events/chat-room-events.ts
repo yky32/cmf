@@ -57,9 +57,28 @@ export interface ChatRoomCreatedEvent {
 }
 
 /**
- * Chat Room Activity Event
+ * Chat Message Event
  * 
- * Base type for all chat room activity events from Spring Boot.
- * Currently includes chat room creation events, but can be extended for other activity types.
+ * Event structure received from Spring Boot when a chat message is sent.
+ * Aligned with: com.quinsic.messenger.entity.dto.events.ChatMessageEvent.java
+ * This is the Kafka message format for chat message events.
+ * Extends BaseEvent (which may contain common fields like eventId, eventType, etc.)
  */
-export type ChatRoomActivityEvent = ChatRoomCreatedEvent;
+export interface ChatMessageEvent {
+    /** Chat room ID where the message belongs */
+    chatRoomId: string;
+    /** Unique message ID */
+    messageId?: string;
+    /** User ID who sent the message */
+    from: string;
+    /** User ID who receives the message (optional, for direct messages) */
+    to?: string;
+    /** Message content */
+    content?: string;
+    /** Timestamp when message was sent (Instant.now().toEpochMilli()) */
+    sentTimestamp?: number;
+    /** Timestamp when message was read (Instant.now().toEpochMilli()) */
+    readAt?: number;
+    /** @deprecated Use sentTimestamp instead. Kept for backward compatibility */
+    timestamp?: number;
+}

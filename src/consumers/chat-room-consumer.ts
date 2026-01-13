@@ -1,7 +1,7 @@
 import {BaseConsumer} from "./base-consumer";
 import {WebSocketService} from "../service/websocket-service";
 import {KafkaTopics} from "../enu/kafka-topics";
-import {ChatRoomCreatedEvent} from "../enu/events/chat-room-events";
+import {ChatRoomCreatedEvent} from "../enu/events";
 
 /**
  * Consumer for messenger.chat-room topic

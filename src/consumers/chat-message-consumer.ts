@@ -1,19 +1,7 @@
 import {BaseConsumer} from "./base-consumer";
 import {WebSocketService} from "../service/websocket-service";
 import {KafkaTopics} from "../enu/kafka-topics";
-
-/**
- * ChatMessageEvent from Spring Boot
- * Contains chat room message information
- * This is Map with Spring Boot: Messenger Dto Structure
- */
-export interface ChatMessageEvent {
-    chatRoomId: string;  // Required: which chat room this message belongs to
-    from: string;        // User ID who sent the message
-    content?: string;    // Alternative field name for message content
-    timestamp?: number;
-    sentTimestamp?: number;  // Alternative field name for timestamp
-}
+import {ChatMessageEvent} from "../enu/events";
 
 /**
  * Consumer for messenger-ws.chat-messages topic
@@ -49,7 +37,9 @@ export class ChatMessageConsumer implements BaseConsumer {
             }
 
             const messageContent = chatMessage.content || 'Not Found...';
-            const timestamp = chatMessage.timestamp || chatMessage.sentTimestamp || Date.now();
+            // Prefer sentTimestamp, fallback to timestamp for backward compatibility, then current time
+            // Note: timestamp is deprecated but kept for backward compatibility
+            const timestamp = chatMessage.sentTimestamp ?? chatMessage.timestamp ?? Date.now();
 
             if (!messageContent) {
                 console.warn(`⚠️ [ChatMessageConsumer] Received message without content:`, message);
@@ -57,17 +47,24 @@ export class ChatMessageConsumer implements BaseConsumer {
             }
 
             console.log(`📥 [ChatMessageConsumer] Processing message for chat room ${chatRoomId}`);
+            console.log(`   MessageId: ${chatMessage.messageId || 'N/A'}`);
             console.log(`   From: ${chatMessage.from}`);
+            console.log(`   To: ${chatMessage.to || 'N/A (broadcast)'}`);
             console.log(`   Content: ${messageContent.substring(0, 50)}${messageContent.length > 50 ? '...' : ''}`);
-            console.log(`   Timestamp: ${timestamp}`);
+            console.log(`   SentTimestamp: ${timestamp}`);
+            console.log(`   ReadAt: ${chatMessage.readAt || 'N/A'}`);
 
             // Broadcast to participants in the specific chat room only
             this.webSocketService.broadcastChatMessage({
                 chatRoomId: chatRoomId,
+                messageId: chatMessage.messageId,
                 from: chatMessage.from,
+                to: chatMessage.to,
                 message: messageContent,
                 content: messageContent,  // Include both for compatibility
-                timestamp: timestamp
+                sentTimestamp: timestamp,
+                readAt: chatMessage.readAt,
+                timestamp: timestamp  // Include for backward compatibility
             });
 
             console.log(`✅ [ChatMessageConsumer] Successfully broadcasted message to chat room ${chatRoomId} participants`);
