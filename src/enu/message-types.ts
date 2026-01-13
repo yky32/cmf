@@ -25,6 +25,10 @@ export enum ClientMessageType {
   GET_CHAT_ROOMS = "get-chat-rooms",
   /** Send a message to a specific chat room */
   SEND_CHAT_ROOM_MESSAGE = "send-chat-room-message",
+  /** Indicate that user is typing in a chat room */
+  TYPING_START = "typing-start",
+  /** Indicate that user stopped typing in a chat room */
+  TYPING_STOP = "typing-stop",
 }
 
 /**
@@ -61,6 +65,10 @@ export enum ServerMessageType {
   CHAT_ROOM_PARTICIPANT_LEFT = "chat-room-participant-left",
   /** Response with list of all chat rooms and their info */
   CHAT_ROOM_LIST = "chat-room-list",
+  /** Notification that a participant is typing in a chat room */
+  CHAT_ROOM_TYPING = "chat-room-typing",
+  /** Notification that a participant stopped typing in a chat room */
+  CHAT_ROOM_TYPING_STOPPED = "chat-room-typing-stopped",
 }
 
 /**

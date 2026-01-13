@@ -1,5 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "http";
+import { randomUUID } from "crypto";
 import { KafkaService, KafkaMessage } from "./kafka-service";
 import { ClientMessageType, ServerMessageType, MessageType } from "../enu/message-types";
 import { ChatRoomManager } from "../manager/chat-room-manager";
@@ -22,7 +23,6 @@ export class WebSocketService {
   private wss: WebSocketServer;
   private readonly httpServer: any;
   private clients: Map<string, WebSocket> = new Map();
-  private clientCounter = 1;
   private config: WebSocketServiceConfig;
   private readonly kafkaService: KafkaService;
   private readonly chatRoomManager: ChatRoomManager;
@@ -85,8 +85,14 @@ export class WebSocketService {
   }
 
   private setupWebSocketHandlers(): void {
-    this.wss.on("connection", (ws: WebSocket) => {
-      const clientId = `client-${this.clientCounter++}`;
+    this.wss.on("connection", (ws: WebSocket, req?: any) => {
+      // Generate UUID-based client ID for distributed deployments
+      // TODO: Replace with profileId from Spring Boot authentication
+      // When Spring Boot passes profileId via WebSocket upgrade request or initial message,
+      // extract it from: req.headers, query params, or first message after connection
+      // Example: const profileId = req.headers['x-profile-id'] || extractFromQuery(req.url) || awaitFirstMessage();
+      // For now, use UUID to avoid conflicts in multi-pod K8s deployments
+      const clientId = randomUUID();
       this.clients.set(clientId, ws);
 
       console.log(`✅ ${clientId} connected`);
@@ -164,6 +170,14 @@ export class WebSocketService {
 
       case ClientMessageType.SEND_CHAT_ROOM_MESSAGE:
         await this.handleSendChatRoomMessage(clientId, message.chatRoomId, message.message || message.content || "");
+        break;
+
+      case ClientMessageType.TYPING_START:
+        this.handleTypingStart(clientId, message.chatRoomId);
+        break;
+
+      case ClientMessageType.TYPING_STOP:
+        this.handleTypingStop(clientId, message.chatRoomId);
         break;
 
       default:
@@ -412,6 +426,64 @@ export class WebSocketService {
     }
 
     console.log(`👋 [WebSocketService] Client ${clientId} left chat room ${chatRoomId}`);
+  }
+
+  /**
+   * Handle typing start indicator from client
+   */
+  private handleTypingStart(clientId: string, chatRoomId: string | undefined): void {
+    if (!chatRoomId) {
+      const client = this.clients.get(clientId);
+      if (client) {
+        this.sendToClient(client, { 
+          type: ServerMessageType.ERROR, 
+          message: "chatRoomId is required for typing indicator" 
+        });
+      }
+      return;
+    }
+
+    // Check if client is in the chat room
+    if (!this.chatRoomManager.isClientInRoom(clientId, chatRoomId)) {
+      const client = this.clients.get(clientId);
+      if (client) {
+        this.sendToClient(client, { 
+          type: ServerMessageType.ERROR, 
+          message: `You must join chat room ${chatRoomId} before sending typing indicators` 
+        });
+      }
+      return;
+    }
+
+    // Broadcast typing indicator to all other participants in the room
+    this.broadcastToChatRoom(chatRoomId, {
+      type: ServerMessageType.CHAT_ROOM_TYPING,
+      chatRoomId: chatRoomId,
+      participantId: clientId,
+      isTyping: true
+    }, clientId); // Exclude the sender
+  }
+
+  /**
+   * Handle typing stop indicator from client
+   */
+  private handleTypingStop(clientId: string, chatRoomId: string | undefined): void {
+    if (!chatRoomId) {
+      return; // Silently ignore if no chatRoomId
+    }
+
+    // Check if client is in the chat room
+    if (!this.chatRoomManager.isClientInRoom(clientId, chatRoomId)) {
+      return; // Silently ignore if not in room
+    }
+
+    // Broadcast typing stop to all other participants in the room
+    this.broadcastToChatRoom(chatRoomId, {
+      type: ServerMessageType.CHAT_ROOM_TYPING_STOPPED,
+      chatRoomId: chatRoomId,
+      participantId: clientId,
+      isTyping: false
+    }, clientId); // Exclude the sender
   }
 
   /**

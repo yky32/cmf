@@ -119,13 +119,18 @@
             transition: all 0.2s;
         }
 
-        button:hover {
+        button:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 
-        button:active {
+        button:active:not(:disabled) {
             transform: translateY(0);
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
         }
 
         .btn-primary {
@@ -133,7 +138,7 @@
             color: white;
         }
 
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             background: #5568d3;
         }
 
@@ -142,7 +147,7 @@
             color: white;
         }
 
-        .btn-danger:hover {
+        .btn-danger:hover:not(:disabled) {
             background: #dc2626;
         }
 
@@ -151,7 +156,7 @@
             color: white;
         }
 
-        .btn-success:hover {
+        .btn-success:hover:not(:disabled) {
             background: #059669;
         }
 
@@ -160,8 +165,33 @@
             color: white;
         }
 
-        .btn-secondary:hover {
+        .btn-secondary:hover:not(:disabled) {
             background: #4b5563;
+        }
+
+        .btn-secondary:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        #connectionBtn {
+            transition: all 0.2s ease;
+            position: relative;
+            min-width: 120px;
+        }
+
+        #connectionBtn:disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        #connectionBtn.btn-primary:disabled {
+            background: #9ca3af;
+        }
+
+        #connectionBtn.btn-danger:disabled {
+            background: #9ca3af;
         }
 
         .section {
@@ -254,11 +284,42 @@
             font-size: 12px;
         }
 
+        .typing-indicator {
+            min-height: 24px;
+            padding: 8px 20px;
+            background: #f3f4f6;
+            border-radius: 6px 6px 0 0;
+            font-size: 13px;
+            color: #6b7280;
+            font-style: italic;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .typing-indicator:empty {
+            display: none;
+        }
+
+        .typing-indicator-item {
+            display: inline-block;
+            margin-right: 12px;
+        }
+
+        .typing-indicator-item::after {
+            content: '...';
+            animation: typingDots 1.4s infinite;
+        }
+
+        @keyframes typingDots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
         .message-log {
             flex: 1;
             overflow-y: auto;
             background: #f3f4f6;
-            border-radius: 6px;
+            border-radius: 0 0 6px 6px;
             padding: 20px;
             margin-bottom: 20px;
             display: flex;
@@ -539,9 +600,12 @@
             </div>
 
             <div class="connection-controls">
-                <input type="text" id="serverUrl" placeholder="ws://localhost:8088" value="ws://localhost:8088">
-                <button class="btn-primary" id="connectBtn" onclick="connect()">Connect</button>
-                <button class="btn-danger" id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+                <input type="text" id="serverUrl" placeholder="ws://localhost:8088" value="ws://localhost:8088" 
+                       style="flex: 1;" 
+                       onkeypress="if(event.key === 'Enter') toggleConnection();">
+                <button class="btn-primary" id="connectionBtn" onclick="toggleConnection()">
+                    <span id="connectionBtnText">Connect</span>
+                </button>
             </div>
 
             <div class="section">
@@ -634,6 +698,7 @@
                     </div>
                     <button class="btn-secondary" onclick="clearLog()" style="padding: 6px 12px; font-size: 12px;">Clear</button>
                 </div>
+                <div class="typing-indicator" id="typingIndicator"></div>
                 <div class="message-log" id="messageLog"></div>
             </div>
         </div>
@@ -675,6 +740,8 @@
                         <li>leave-chat-room</li>
                         <li>get-chat-rooms</li>
                         <li>send-chat-room-message</li>
+                        <li>typing-start</li>
+                        <li>typing-stop</li>
                     </ul>
                     <p style="margin-top: 10px;"><strong>Server → Client:</strong></p>
                     <ul style="margin-left: 20px; color: #6b7280;">
@@ -692,6 +759,8 @@
                         <li>chat-room-participants-online</li>
                         <li>chat-room-participant-joined</li>
                         <li>chat-room-participant-left</li>
+                        <li>chat-room-typing</li>
+                        <li>chat-room-typing-stopped</li>
                         <li>chat-room-list</li>
                     </ul>
                 </div>
@@ -704,6 +773,9 @@
         let myClientId = null;
         let clients = [];
         let chatRooms = new Map();
+        let typingTimers = new Map(); // Map<chatRoomId, timerId>
+        let typingIndicators = new Map(); // Map<chatRoomId, Set<participantId>>
+        let typingTimeout = null; // Timer for sending typing-stop
 
         function updateStatus(status, text) {
             const indicator = document.getElementById('statusIndicator');
@@ -713,6 +785,27 @@
             statusText.textContent = text;
         }
 
+        function toggleConnection() {
+            const connectionBtn = document.getElementById('connectionBtn');
+            const connectionBtnText = document.getElementById('connectionBtnText');
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                // Currently connected - disconnect
+                disconnect();
+            } else if (ws && (ws.readyState === WebSocket.CONNECTING)) {
+                // Currently connecting - cancel connection
+                ws.close();
+                ws = null;
+                updateStatus('disconnected', 'Connection Cancelled');
+                connectionBtn.className = 'btn-primary';
+                connectionBtnText.textContent = 'Connect';
+                showToast('info', 'Connection cancelled');
+            } else {
+                // Not connected - connect
+                connect();
+            }
+        }
+
         function connect() {
             const url = document.getElementById('serverUrl').value;
             if (!url) {
@@ -720,15 +813,22 @@
                 return;
             }
 
+            const connectionBtn = document.getElementById('connectionBtn');
+            const connectionBtnText = document.getElementById('connectionBtnText');
+            
             updateStatus('connecting', 'Connecting...');
+            connectionBtn.className = 'btn-secondary';
+            connectionBtnText.textContent = 'Connecting...';
+            connectionBtn.disabled = true;
             
             try {
                 ws = new WebSocket(url);
 
                 ws.onopen = () => {
                     updateStatus('connected', 'Connected');
-                    document.getElementById('connectBtn').disabled = true;
-                    document.getElementById('disconnectBtn').disabled = false;
+                    connectionBtn.className = 'btn-danger';
+                    connectionBtnText.textContent = 'Disconnect';
+                    connectionBtn.disabled = false;
                     showToast('success', 'Connected to server');
                 };
 
@@ -746,17 +846,28 @@
                     console.error('WebSocket error:', error);
                     showToast('error', 'WebSocket error occurred');
                     addLogEntry('error', 'Error', 'WebSocket error: ' + error, 'SEND_IN');
+                    connectionBtn.className = 'btn-primary';
+                    connectionBtnText.textContent = 'Connect';
+                    connectionBtn.disabled = false;
                 };
 
                 ws.onclose = () => {
                     updateStatus('disconnected', 'Disconnected');
-                    document.getElementById('connectBtn').disabled = false;
-                    document.getElementById('disconnectBtn').disabled = true;
+                    connectionBtn.className = 'btn-primary';
+                    connectionBtnText.textContent = 'Connect';
+                    connectionBtn.disabled = false;
                     myClientId = null;
                     clients = [];
                     chatRooms.clear();
+                    typingTimers.clear();
+                    typingIndicators.clear();
+                    if (typingTimeout) {
+                        clearTimeout(typingTimeout);
+                        typingTimeout = null;
+                    }
                     updateClientList();
                     updateChatRoomsList();
+                    updateTypingIndicator();
                     document.getElementById('roomCount').textContent = '0';
                     document.getElementById('clientCount').textContent = '0';
                     showToast('info', 'Disconnected from server');
@@ -764,12 +875,20 @@
 
             } catch (error) {
                 updateStatus('disconnected', 'Connection Failed');
+                connectionBtn.className = 'btn-primary';
+                connectionBtnText.textContent = 'Connect';
+                connectionBtn.disabled = false;
                 showToast('error', 'Failed to connect: ' + error.message);
             }
         }
 
         function disconnect() {
+            const connectionBtn = document.getElementById('connectionBtn');
+            const connectionBtnText = document.getElementById('connectionBtnText');
+            
             if (ws) {
+                connectionBtn.disabled = true;
+                connectionBtnText.textContent = 'Disconnecting...';
                 ws.close();
                 ws = null;
             }
@@ -897,6 +1016,9 @@
                 return;
             }
 
+            // Stop typing indicator when sending message
+            stopTyping(roomId);
+
             sendMessage({
                 type: 'send-chat-room-message',
                 chatRoomId: roomId,
@@ -904,6 +1026,80 @@
             });
 
             document.getElementById('chatRoomMessage').value = '';
+        }
+
+        function startTyping(chatRoomId) {
+            if (!chatRoomId || !ws || ws.readyState !== WebSocket.OPEN) {
+                return;
+            }
+
+            // Clear existing timeout
+            if (typingTimeout) {
+                clearTimeout(typingTimeout);
+            }
+
+            // Send typing-start if not already sent recently
+            const timerKey = `typing-${chatRoomId}`;
+            if (!typingTimers.has(timerKey)) {
+                sendMessage({
+                    type: 'typing-start',
+                    chatRoomId: chatRoomId
+                });
+                typingTimers.set(timerKey, Date.now());
+            }
+
+            // Set timeout to send typing-stop after 3 seconds of inactivity
+            typingTimeout = setTimeout(() => {
+                stopTyping(chatRoomId);
+            }, 3000);
+        }
+
+        function stopTyping(chatRoomId) {
+            if (!chatRoomId || !ws || ws.readyState !== WebSocket.OPEN) {
+                return;
+            }
+
+            // Clear timeout
+            if (typingTimeout) {
+                clearTimeout(typingTimeout);
+                typingTimeout = null;
+            }
+
+            // Send typing-stop if we were typing
+            const timerKey = `typing-${chatRoomId}`;
+            if (typingTimers.has(timerKey)) {
+                sendMessage({
+                    type: 'typing-stop',
+                    chatRoomId: chatRoomId
+                });
+                typingTimers.delete(timerKey);
+            }
+        }
+
+        function updateTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            const activeTyping = [];
+
+            typingIndicators.forEach((participants, chatRoomId) => {
+                if (participants.size > 0) {
+                    const participantList = Array.from(participants);
+                    if (participantList.length === 1) {
+                        activeTyping.push(`${participantList[0]} is typing`);
+                    } else if (participantList.length === 2) {
+                        activeTyping.push(`${participantList[0]} and ${participantList[1]} are typing`);
+                    } else {
+                        activeTyping.push(`${participantList[0]} and ${participantList.length - 1} others are typing`);
+                    }
+                }
+            });
+
+            if (activeTyping.length > 0) {
+                indicator.innerHTML = activeTyping.map(item => 
+                    `<span class="typing-indicator-item">${item}</span>`
+                ).join('');
+            } else {
+                indicator.innerHTML = '';
+            }
         }
 
         function handleMessage(message) {
@@ -914,7 +1110,8 @@
             const isSystemMessage = ['welcome', 'error', 'kicked', 'client-list', 'client-connected', 
                                     'client-disconnected', 'chat-room.created', 'chat-room-joined', 
                                     'chat-room-left', 'chat-room-participants-online', 'chat-room-participant-joined',
-                                    'chat-room-participant-left', 'chat-room-list'].includes(message.type);
+                                    'chat-room-participant-left', 'chat-room-typing', 'chat-room-typing-stopped',
+                                    'chat-room-list'].includes(message.type);
             
             // Skip displaying SEND_IN messages if they're from the same client (myself)
             // These messages will already appear as SEND_OUT on the right side
@@ -1050,6 +1247,38 @@
                         }
                         updateChatRoomsList();
                         showToast('info', `Client ${message.participantId} left chat room ${message.chatRoomId}`);
+                    }
+                    // Remove typing indicator for the participant who left
+                    if (message.participantId && typingIndicators.has(message.chatRoomId)) {
+                        typingIndicators.get(message.chatRoomId).delete(message.participantId);
+                        updateTypingIndicator();
+                    }
+                    break;
+
+                case 'chat-room-typing':
+                    // Someone is typing in a chat room
+                    if (message.chatRoomId && message.participantId && message.participantId !== myClientId) {
+                        if (!typingIndicators.has(message.chatRoomId)) {
+                            typingIndicators.set(message.chatRoomId, new Set());
+                        }
+                        typingIndicators.get(message.chatRoomId).add(message.participantId);
+                        updateTypingIndicator();
+
+                        // Auto-remove typing indicator after 5 seconds if no stop message
+                        setTimeout(() => {
+                            if (typingIndicators.has(message.chatRoomId)) {
+                                typingIndicators.get(message.chatRoomId).delete(message.participantId);
+                                updateTypingIndicator();
+                            }
+                        }, 5000);
+                    }
+                    break;
+
+                case 'chat-room-typing-stopped':
+                    // Someone stopped typing in a chat room
+                    if (message.chatRoomId && message.participantId && typingIndicators.has(message.chatRoomId)) {
+                        typingIndicators.get(message.chatRoomId).delete(message.participantId);
+                        updateTypingIndicator();
                     }
                     break;
 
@@ -1253,8 +1482,31 @@
             if (e.key === 'Enter') leaveRoom();
         });
 
-        document.getElementById('chatRoomMessage').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendChatRoomMessage();
+        // Typing indicator for chat room message input
+        const chatRoomMessageInput = document.getElementById('chatRoomMessage');
+        chatRoomMessageInput.addEventListener('input', () => {
+            const roomId = document.getElementById('chatRoomMessageRoomId').value;
+            if (roomId) {
+                startTyping(roomId);
+            }
+        });
+
+        chatRoomMessageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendChatRoomMessage();
+            } else {
+                const roomId = document.getElementById('chatRoomMessageRoomId').value;
+                if (roomId) {
+                    startTyping(roomId);
+                }
+            }
+        });
+
+        chatRoomMessageInput.addEventListener('blur', () => {
+            const roomId = document.getElementById('chatRoomMessageRoomId').value;
+            if (roomId) {
+                stopTyping(roomId);
+            }
         });
     </script>
 </body>
