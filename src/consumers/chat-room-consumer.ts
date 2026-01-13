@@ -1,22 +1,7 @@
 import {BaseConsumer} from "./base-consumer";
 import {WebSocketService} from "../service/websocket-service";
 import {KafkaTopics} from "../enu/kafka-topics";
-
-/**
- * ChatRoomCreatedEvent from Spring Boot (for chat room creation)
- */
-export interface ChatRoomCreatedEvent {
-    chatRoomId: string;
-    type?: string;
-    name?: string;
-    participantIds?: string[];
-    createdAt?: number;
-}
-
-/**
- * ChatRoomActivityEvent - Base interface for all chat room activity events
- */
-export type ChatRoomActivityEvent = ChatRoomCreatedEvent;
+import {ChatRoomCreatedEvent} from "../enu/events/chat-room-events";
 
 /**
  * Consumer for messenger.chat-room topic

@@ -11,18 +11,7 @@
  * - Better memory management
  */
 
-export interface ChatRoomInfo {
-    chatRoomId: string;
-    type?: string;
-    name?: string;
-    createdAt: number;
-    participantIds?: string[];
-}
-
-interface ChatRoomMetadata {
-    participants: Set<string>;
-    info: ChatRoomInfo;
-}
+import { ChatRoomInfo, ChatRoomMetadata } from "../enu/events/chat-room-events";
 
 export class ChatRoomManager {
     // Map of chatRoomKey -> ChatRoomMetadata (combines participants and info for better locality)
