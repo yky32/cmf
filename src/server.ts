@@ -1,9 +1,9 @@
-import {KafkaService} from "./kafka-service";
-import {KafkaConsumerManager} from "./kafka-consumer-manager";
-import {WebSocketService} from "./websocket-service";
+import {KafkaService} from "./service/kafka-service";
+import {KafkaConsumerBaseManager} from "./manager/kafka-consumer-base-manager";
+import {WebSocketService} from "./service/websocket-service";
 import {ChatRoomConsumer} from "./consumers/chat-room-consumer";
 import {ChatMessageConsumer} from "./consumers/chat-message-consumer";
-import {KafkaTopics} from "./kafka-topics";
+import {KafkaTopics} from "./enu/kafka-topics";
 
 const PORT = process.env.PORT || 8088;
 const KAFKA_BROKER = process.env.KAFKA_BROKER || "localhost:9092";
@@ -26,7 +26,7 @@ async function startServer() {
         });
 
         // Initialize Kafka consumer manager
-        const consumerManager = new KafkaConsumerManager({
+        const consumerManager = new KafkaConsumerBaseManager({
             broker: KAFKA_BROKER,
             clientId: "cmf-consumer-manager"
         });

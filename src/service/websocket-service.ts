@@ -1,8 +1,8 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "http";
 import { KafkaService, KafkaMessage } from "./kafka-service";
-import { ClientMessageType, ServerMessageType, MessageType } from "./message-types";
-import { ChatRoomManager, ChatRoomInfo } from "./chat-room-manager";
+import { ClientMessageType, ServerMessageType, MessageType } from "../enu/message-types";
+import { ChatRoomManager, ChatRoomInfo } from "../manager/chat-room-manager";
 
 export interface WebSocketMessage {
   type: MessageType;

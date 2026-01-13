@@ -1,5 +1,5 @@
 import { Kafka, Consumer, EachMessagePayload } from "kafkajs";
-import { BaseConsumer } from "./consumers/base-consumer";
+import { BaseConsumer } from "../consumers/base-consumer";
 
 export interface KafkaConsumerManagerConfig {
   broker: string;
@@ -12,7 +12,7 @@ export interface KafkaConsumerManagerConfig {
  * Manages multiple Kafka consumers for different topics.
  * Each consumer is handled by a separate IConsumer implementation.
  */
-export class KafkaConsumerManager {
+export class KafkaConsumerBaseManager {
   private kafka: Kafka;
   private consumers: Map<string, Consumer> = new Map();
   private consumerHandlers: Map<string, BaseConsumer> = new Map();

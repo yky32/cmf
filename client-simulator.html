@@ -65,26 +65,51 @@
             flex: 1;
             min-height: 0;
             overflow-y: auto;
+            overflow-x: hidden;
             border: 2px solid #e2e8f0;
             padding: 15px;
             background: linear-gradient(to bottom, #f7fafc, #edf2f7);
             margin-bottom: 25px;
             border-radius: 12px;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
+            max-height: calc(100vh - 400px);
         }
         .messages::-webkit-scrollbar {
-            width: 8px;
+            width: 10px;
         }
         .messages::-webkit-scrollbar-track {
-            background: #f1f1f1;
+            background: #f1f5f9;
             border-radius: 10px;
+            margin: 5px;
         }
         .messages::-webkit-scrollbar-thumb {
-            background: #888;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 10px;
+            border: 2px solid #f1f5f9;
         }
         .messages::-webkit-scrollbar-thumb:hover {
-            background: #555;
+            background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
+        }
+        .messages::-webkit-scrollbar {
+            width: 12px;
+        }
+        .messages::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+            margin: 5px;
+        }
+        .messages::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            border: 2px solid #f1f5f9;
+        }
+        .messages::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
+        }
+        /* Firefox scrollbar */
+        .messages {
+            scrollbar-width: thin;
+            scrollbar-color: #667eea #f1f5f9;
         }
         .message {
             margin-bottom: 12px;
@@ -404,11 +429,22 @@
         <div class="main-container">
         
         <div class="controls">
-            <select id="chatRoomIdSelect" disabled>
-                <option value="">Select chat room...</option>
-            </select>
-            <button id="joinRoomBtn" onclick="joinChatRoom()" disabled>Join Chat Room</button>
-            <button id="leaveRoomBtn" onclick="leaveChatRoom()" disabled>Leave Chat Room</button>
+            <div style="grid-column: 1 / -1; margin-bottom: 10px; padding: 15px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 10px; border: 2px solid #0ea5e9;">
+                <h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #0c4a6e;">🏠 Join Chat Room (Manual)</h4>
+                <input type="text" id="manualChatRoomIdInput" placeholder="Enter chat room ID (e.g., cr_123)" disabled style="width: 100%; padding: 10px; border: 2px solid #0ea5e9; border-radius: 8px; font-size: 14px; margin-bottom: 8px;">
+                <button id="manualJoinRoomBtn" onclick="joinChatRoomManual()" disabled style="width: 100%; padding: 10px; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">Join Chat Room</button>
+            </div>
+            
+            <div style="grid-column: 1 / -1; margin-bottom: 10px; padding: 15px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 10px; border: 2px solid #f59e0b;">
+                <h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #92400e;">📋 Join Chat Room (From List)</h4>
+                <select id="chatRoomIdSelect" disabled style="width: 100%; padding: 10px; border: 2px solid #f59e0b; border-radius: 8px; font-size: 14px; margin-bottom: 8px;">
+                    <option value="">Select chat room...</option>
+                </select>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <button id="joinRoomBtn" onclick="joinChatRoom()" disabled style="padding: 10px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">Join</button>
+                    <button id="leaveRoomBtn" onclick="leaveChatRoom()" disabled style="padding: 10px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">Leave</button>
+                </div>
+            </div>
             
             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
                 <h4 style="margin: 0 0 10px 0; font-size: 14px;">💬 Send Message to Chat Room</h4>
@@ -484,7 +520,11 @@
                     document.getElementById('disconnectBtn').disabled = false;
                     enableControls(true);
                     addMessage('Connected to WebSocket server', 'welcome');
-                    refreshStats();
+                    
+                    // Fetch existing chat rooms and state from server immediately after connection
+                    setTimeout(() => {
+                        refreshStats();
+                    }, 300);
                 };
                 
                 ws.onmessage = function(event) {
@@ -609,7 +649,10 @@
                     document.getElementById('clientInfo').style.display = 'block';
                     addMessage(`Welcome! Your client ID is: ${clientId}`, 'welcome');
                     updateClientList();
-                    // Request current chat rooms and joined rooms from server
+                    // Fetch existing chat rooms from server after clientId is set
+                    setTimeout(() => {
+                        refreshStats();
+                    }, 300);
                     break;
                 case 'kafka':
                     addMessage(`📥 Kafka Message: ${data.message}`, 'kafka');
@@ -684,8 +727,28 @@
                 case 'chat-room-joined':
                     joinedChatRooms.add(data.chatRoomId);
                     addMessage(`✅ Joined chat room: ${data.chatRoomId}`, 'welcome');
+                    // Get current client ID
+                    const currentClientId = document.getElementById('clientId')?.textContent;
+                    // If this is a new room, add it to the chatRooms map
+                    if (!chatRooms.has(data.chatRoomId)) {
+                        chatRooms.set(data.chatRoomId, {
+                            participants: new Set(currentClientId ? [currentClientId] : []),
+                            info: {
+                                chatRoomId: data.chatRoomId,
+                                createdAt: Date.now()
+                            }
+                        });
+                    } else {
+                        // Add current client to participants if not already there
+                        const room = chatRooms.get(data.chatRoomId);
+                        if (room && room.participants && currentClientId) {
+                            room.participants.add(currentClientId);
+                        }
+                    }
+                    updateChatRoomsList();
                     updateChatRoomDropdown();
                     updateChatRoomMessageDropdown();
+                    refreshStats();
                     break;
                 case 'chat-room-left':
                     joinedChatRooms.delete(data.chatRoomId);
@@ -867,6 +930,32 @@
             }
         }
         
+        function joinChatRoomManual() {
+            const chatRoomId = document.getElementById('manualChatRoomIdInput').value.trim();
+            if (!chatRoomId) {
+                addMessage('❌ Please enter a chat room ID', 'error');
+                return;
+            }
+            
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                addMessage('❌ Not connected to WebSocket', 'error');
+                return;
+            }
+            
+            ws.send(JSON.stringify({
+                type: 'join_chat_room',
+                chatRoomId: chatRoomId
+            }));
+            
+            addMessage(`🚀 Joining chat room: ${chatRoomId}`, 'message');
+            document.getElementById('manualChatRoomIdInput').value = '';
+            
+            // Refresh stats to update chat room list and dropdowns
+            setTimeout(() => {
+                refreshStats();
+            }, 500);
+        }
+        
         function joinChatRoom() {
             const chatRoomId = document.getElementById('chatRoomIdSelect').value;
             if (chatRoomId && ws) {
@@ -990,14 +1079,23 @@
         }
         
         function refreshStats() {
-            if (!clientId) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
                 // Not connected yet, skip stats refresh
+                return;
+            }
+            
+            const currentClientId = document.getElementById('clientId')?.textContent || clientId;
+            if (!currentClientId) {
+                // Wait a bit for clientId to be set
+                setTimeout(() => refreshStats(), 200);
                 return;
             }
             
             fetch('http://localhost:8088/stats')
                 .then(response => response.json())
                 .then(data => {
+                    console.log('📊 [refreshStats] Received stats:', data);
+                    
                     // Update chat rooms - merge with existing to preserve info
                     if (data.chatRooms && Array.isArray(data.chatRooms)) {
                         // Sync joined rooms from server (check if current clientId is in participants)
@@ -1008,10 +1106,12 @@
                             const participants = new Set(room.participants || []);
                             
                             // Check if current client is in this room's participants
-                            if (participants.has(clientId)) {
+                            if (participants.has(currentClientId)) {
                                 serverJoinedRooms.add(room.chatRoomId);
                             }
                             
+                            // Always update/merge room info, even if we're not a participant
+                            // This ensures all existing rooms are visible to newly connected clients
                             chatRooms.set(room.chatRoomId, {
                                 participants: participants,
                                 info: existing?.info || room.info || {
@@ -1023,13 +1123,18 @@
                         
                         // Sync joined rooms from server state
                         joinedChatRooms = serverJoinedRooms;
+                        
+                        console.log(`📊 [refreshStats] Updated ${data.chatRooms.length} chat rooms, joined ${serverJoinedRooms.size} rooms`);
+                    } else {
+                        console.log('📊 [refreshStats] No chat rooms in response');
                     }
+                    
                     updateChatRoomsList();
                     updateChatRoomDropdown();
                     updateChatRoomMessageDropdown();
                 })
                 .catch(error => {
-                    console.error('Error fetching stats:', error);
+                    console.error('❌ Error fetching stats:', error);
                 });
         }
         
@@ -1096,7 +1201,7 @@
         }
         
         function enableControls(enabled) {
-            const controls = ['chatRoomIdSelect', 'joinRoomBtn', 'leaveRoomBtn', 'chatRoomMessageSelect', 'chatRoomMessageInput', 'sendChatRoomMessageBtn', 
+            const controls = ['manualChatRoomIdInput', 'manualJoinRoomBtn', 'chatRoomIdSelect', 'joinRoomBtn', 'leaveRoomBtn', 'chatRoomMessageSelect', 'chatRoomMessageInput', 'sendChatRoomMessageBtn', 
                             'messageInput', 'broadcastBtn', 'targetInput', 'directMessageInput', 
                             'directBtn', 'kickTargetInput', 'kickBtn', 'kickAllBtn'];
             controls.forEach(id => {
@@ -1117,6 +1222,12 @@
         document.getElementById('directMessageInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 sendDirectMessage();
+            }
+        });
+        
+        document.getElementById('manualChatRoomIdInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                joinChatRoomManual();
             }
         });
         

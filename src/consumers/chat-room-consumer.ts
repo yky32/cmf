@@ -1,6 +1,6 @@
 import {BaseConsumer} from "./base-consumer";
-import {WebSocketService} from "../websocket-service";
-import {KafkaTopics} from "../kafka-topics";
+import {WebSocketService} from "../service/websocket-service";
+import {KafkaTopics} from "../enu/kafka-topics";
 
 /**
  * ChatRoomCreatedEvent from Spring Boot (for chat room creation)
