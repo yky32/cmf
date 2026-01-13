@@ -5,11 +5,11 @@ import {KafkaTopics} from "../enu/kafka-topics";
 /**
  * ChatMessageEvent from Spring Boot
  * Contains chat room message information
+ * This is Map with Spring Boot: Messenger Dto Structure
  */
 export interface ChatMessageEvent {
     chatRoomId: string;  // Required: which chat room this message belongs to
     from: string;        // User ID who sent the message
-    message?: string;    // Message content (optional, could be in 'content' field)
     content?: string;    // Alternative field name for message content
     timestamp?: number;
     sentTimestamp?: number;  // Alternative field name for timestamp
@@ -38,6 +38,8 @@ export class ChatMessageConsumer implements BaseConsumer {
 
     async handleMessage(message: any): Promise<void> {
         try {
+            console.log(`📨 [ChatMessageConsumer] Raw Kafka message received:`, JSON.stringify(message, null, 2));
+            
             const chatMessage: ChatMessageEvent = message;
             const chatRoomId = chatMessage.chatRoomId;
 
@@ -46,11 +48,18 @@ export class ChatMessageConsumer implements BaseConsumer {
                 return;
             }
 
-            // Get message content (support both 'message' and 'content' fields)
-            const messageContent = chatMessage.message || chatMessage.content || '';
+            const messageContent = chatMessage.content || 'Not Found...';
             const timestamp = chatMessage.timestamp || chatMessage.sentTimestamp || Date.now();
 
-            console.log(`📥 [ChatMessageConsumer] Received message for chat room ${chatRoomId} from: ${chatMessage.from}`);
+            if (!messageContent) {
+                console.warn(`⚠️ [ChatMessageConsumer] Received message without content:`, message);
+                return;
+            }
+
+            console.log(`📥 [ChatMessageConsumer] Processing message for chat room ${chatRoomId}`);
+            console.log(`   From: ${chatMessage.from}`);
+            console.log(`   Content: ${messageContent.substring(0, 50)}${messageContent.length > 50 ? '...' : ''}`);
+            console.log(`   Timestamp: ${timestamp}`);
 
             // Broadcast to participants in the specific chat room only
             this.webSocketService.broadcastChatMessage({
@@ -61,9 +70,10 @@ export class ChatMessageConsumer implements BaseConsumer {
                 timestamp: timestamp
             });
 
-            console.log(`📤 [ChatMessageConsumer] Broadcasted message to chat room ${chatRoomId} participants`);
+            console.log(`✅ [ChatMessageConsumer] Successfully broadcasted message to chat room ${chatRoomId} participants`);
         } catch (error) {
             console.error(`❌ [ChatMessageConsumer] Error processing message:`, error);
+            console.error(`   Message that caused error:`, JSON.stringify(message, null, 2));
             throw error;
         }
     }

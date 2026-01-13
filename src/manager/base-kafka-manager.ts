@@ -91,6 +91,9 @@ export class BaseKafkaManager {
    */
   private async handleMessage(topic: string, payload: EachMessagePayload): Promise<void> {
     try {
+      console.log(`\n📬 [ConsumerManager] Received message from Kafka topic: "${topic}"`);
+      console.log(`   Partition: ${payload.partition}, Offset: ${payload.message.offset}`);
+      
       const consumer = this.consumerHandlers.get(topic);
       if (!consumer) {
         console.error(`❌ [ConsumerManager] No handler found for topic: ${topic}`);
@@ -103,13 +106,22 @@ export class BaseKafkaManager {
         return;
       }
 
+      console.log(`   Raw message length: ${messageValue.length} bytes`);
+      
       // Parse message
       const parsedMessage = JSON.parse(messageValue);
+      console.log(`   Parsed message:`, JSON.stringify(parsedMessage, null, 2));
 
       // Delegate to consumer handler
       await consumer.handleMessage(parsedMessage, payload.message.value || undefined);
+      
+      console.log(`   ✅ Message processed successfully\n`);
     } catch (error) {
       console.error(`❌ [ConsumerManager] Error handling message from topic ${topic}:`, error);
+      if (error instanceof Error) {
+        console.error(`   Error message: ${error.message}`);
+        console.error(`   Stack trace: ${error.stack}`);
+      }
       // Don't throw - continue processing other messages
     }
   }

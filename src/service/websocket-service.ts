@@ -318,15 +318,27 @@ export class WebSocketService {
     const participants = this.chatRoomManager.getChatRoomParticipants(chatRoomId);
     let sentCount = 0;
 
+    console.log(`📡 [WebSocketService] Broadcasting to chat room ${chatRoomId}`);
+    console.log(`   Total participants in room: ${participants.size}`);
+    console.log(`   Connected clients: ${this.clients.size}`);
+
     for (const clientId of participants) {
       const client = this.clients.get(clientId);
       if (client) {
         this.sendToClient(client, message);
         sentCount++;
+        console.log(`   ✅ Sent to client: ${clientId}`);
+      } else {
+        console.log(`   ⚠️ Client ${clientId} not found in connected clients`);
       }
     }
 
-    console.log(`📤 [WebSocketService] Broadcasted to chat room ${chatRoomId}: ${sentCount} participants`);
+    if (sentCount === 0) {
+      console.log(`⚠️ [WebSocketService] No participants received message in chat room ${chatRoomId}`);
+      console.log(`   Participants in room: ${Array.from(participants).join(', ') || 'none'}`);
+    } else {
+      console.log(`✅ [WebSocketService] Broadcasted to chat room ${chatRoomId}: ${sentCount}/${participants.size} participants received`);
+    }
   }
 
   /**
