@@ -43,25 +43,30 @@ export class WebSocketService {
           kafka: this.kafkaService ? 'connected' : 'disconnected'
         }));
       } else if (req.url === '/stats') {
-        // Get detailed chat room statistics
-        const allChatRooms = this.chatRoomManager.getAllChatRooms();
-        const chatRoomsStats = allChatRooms.map(chatRoomId => {
-          const participants = Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId));
-          const info = this.chatRoomManager.getChatRoomInfo(chatRoomId);
+        // Get detailed chat room statistics (optimized)
+        const roomsWithStats = this.chatRoomManager.getAllChatRoomsWithStats();
+        const chatRoomsStats = roomsWithStats.map(room => {
+          const participants = room.participantCount > 0 
+            ? Array.from(this.chatRoomManager.getChatRoomParticipants(room.chatRoomId))
+            : [];
           return {
-            chatRoomId,
-            participantCount: participants.length,
+            chatRoomId: room.chatRoomId,
+            participantCount: room.participantCount,
             participants: participants,
-            info: info || null
+            info: room.info || null
           };
         });
+        
+        // Get manager stats for additional insights
+        const managerStats = this.chatRoomManager.getStats();
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           timestamp: new Date().toISOString(),
           totalClients: this.clients.size,
           totalChatRooms: this.chatRoomManager.getChatRoomCount(),
-          chatRooms: chatRoomsStats
+          chatRooms: chatRoomsStats,
+          managerStats: managerStats
         }));
       } else {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -206,9 +211,8 @@ export class WebSocketService {
       return;
     }
 
-    // Check if client is in the chat room
-    const participants = this.chatRoomManager.getChatRoomParticipants(chatRoomId);
-    if (!participants.has(from)) {
+    // Check if client is in the chat room (optimized check)
+    if (!this.chatRoomManager.isClientInRoom(from, chatRoomId)) {
       const client = this.clients.get(from);
       if (client) {
         this.sendToClient(client, { 
@@ -332,7 +336,11 @@ export class WebSocketService {
       });
 
       // Send current online participants in the chat room
-      const participants = Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId));
+      // Use optimized method to get participant count first
+      const participantCount = this.chatRoomManager.getChatRoomParticipantCount(chatRoomId);
+      const participants = participantCount > 0 
+        ? Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId))
+        : [];
       this.sendToClient(client, {
         type: ServerMessageType.CHAT_ROOM_PARTICIPANTS_ONLINE,
         chatRoomId: chatRoomId,
@@ -373,20 +381,21 @@ export class WebSocketService {
 
   /**
    * Handle get chat rooms request from client
+   * Optimized to use getAllChatRoomsWithStats for better performance
    */
   private handleGetChatRooms(clientId: string): void {
-    const allChatRoomIds = this.chatRoomManager.getAllChatRooms();
-    const chatRoomsInfo = allChatRoomIds.map(chatRoomId => {
-      const info = this.chatRoomManager.getChatRoomInfo(chatRoomId);
-      const participants = Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId));
+    // Use optimized method that returns stats in one call
+    const roomsWithStats = this.chatRoomManager.getAllChatRoomsWithStats();
+    const chatRoomsInfo = roomsWithStats.map(room => {
+      const participants = Array.from(this.chatRoomManager.getChatRoomParticipants(room.chatRoomId));
       return {
-        chatRoomId,
-        name: info?.name,
-        type: info?.type,
-        participantCount: participants.length,
+        chatRoomId: room.chatRoomId,
+        name: room.info?.name,
+        type: room.info?.type,
+        participantCount: room.participantCount,
         participants: participants,
-        createdAt: info?.createdAt,
-        participantIds: info?.participantIds
+        createdAt: room.info?.createdAt,
+        participantIds: room.info?.participantIds
       };
     });
 
@@ -394,10 +403,10 @@ export class WebSocketService {
     if (client) {
       this.sendToClient(client, {
         type: ServerMessageType.CHAT_ROOM_LIST,
-        totalCount: allChatRoomIds.length,
+        totalCount: roomsWithStats.length,
         chatRooms: chatRoomsInfo
       });
-      console.log(`📋 [WebSocketService] Sent chat room list to client ${clientId}: ${allChatRoomIds.length} rooms`);
+      console.log(`📋 [WebSocketService] Sent chat room list to client ${clientId}: ${roomsWithStats.length} rooms`);
     }
   }
 
