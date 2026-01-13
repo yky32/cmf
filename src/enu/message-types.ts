@@ -18,9 +18,13 @@ export enum ClientMessageType {
   /** Disconnect all connected clients */
   KICK_ALL = "kick-all",
   /** Join a chat room */
-  JOIN_CHAT_ROOM = "join_chat_room",
+  JOIN_CHAT_ROOM = "join-chat-room",
   /** Leave a chat room */
-  LEAVE_CHAT_ROOM = "leave_chat_room",
+  LEAVE_CHAT_ROOM = "leave-chat-room",
+  /** Query all chat rooms (get list and count) */
+  GET_CHAT_ROOMS = "get-chat-rooms",
+  /** Send a message to a specific chat room */
+  SEND_CHAT_ROOM_MESSAGE = "send-chat-room-message",
 }
 
 /**
@@ -51,6 +55,8 @@ export enum ServerMessageType {
   CHAT_ROOM_LEFT = "chat-room-left",
   /** Online participants in a chat room */
   CHAT_ROOM_PARTICIPANTS_ONLINE = "chat-room-participants-online",
+  /** Response with list of all chat rooms and their info */
+  CHAT_ROOM_LIST = "chat-room-list",
 }
 
 /**

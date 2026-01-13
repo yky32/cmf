@@ -3,6 +3,7 @@ import { createServer } from "http";
 import { KafkaService, KafkaMessage } from "./kafka-service";
 import { ClientMessageType, ServerMessageType, MessageType } from "../enu/message-types";
 import { ChatRoomManager, ChatRoomInfo } from "../manager/chat-room-manager";
+import { KafkaTopics } from "../enu/kafka-topics";
 
 export interface WebSocketMessage {
   type: MessageType;
@@ -151,6 +152,14 @@ export class WebSocketService {
         this.handleLeaveRoom(clientId, message.chatRoomId);
         break;
 
+      case ClientMessageType.GET_CHAT_ROOMS:
+        this.handleGetChatRooms(clientId);
+        break;
+
+      case ClientMessageType.SEND_CHAT_ROOM_MESSAGE:
+        await this.handleSendChatRoomMessage(clientId, message.chatRoomId, message.message || message.content || "");
+        break;
+
       default:
         console.log(`❓ Unknown message type: ${message.type}`);
         const client = this.clients.get(clientId);
@@ -171,6 +180,68 @@ export class WebSocketService {
       await this.kafkaService.sendMessage(kafkaMessage);
     } catch (error) {
       console.error("Error sending broadcast to Kafka:", error);
+    }
+  }
+
+  private async handleSendChatRoomMessage(from: string, chatRoomId: string | undefined, message: string): Promise<void> {
+    if (!chatRoomId) {
+      const client = this.clients.get(from);
+      if (client) {
+        this.sendToClient(client, { 
+          type: ServerMessageType.ERROR, 
+          message: "chatRoomId is required for sending chat room messages" 
+        });
+      }
+      return;
+    }
+
+    if (!message || message.trim() === "") {
+      const client = this.clients.get(from);
+      if (client) {
+        this.sendToClient(client, { 
+          type: ServerMessageType.ERROR, 
+          message: "Message content is required" 
+        });
+      }
+      return;
+    }
+
+    // Check if client is in the chat room
+    const participants = this.chatRoomManager.getChatRoomParticipants(chatRoomId);
+    if (!participants.has(from)) {
+      const client = this.clients.get(from);
+      if (client) {
+        this.sendToClient(client, { 
+          type: ServerMessageType.ERROR, 
+          message: `You must join chat room ${chatRoomId} before sending messages` 
+        });
+      }
+      return;
+    }
+
+    try {
+      // Send message to Kafka with chatRoomId
+      // The ChatMessageConsumer will pick it up and broadcast to all participants in the room
+      const kafkaMessage: KafkaMessage & { chatRoomId: string; content?: string } = {
+        from,
+        message,
+        content: message, // Include both for compatibility
+        chatRoomId: chatRoomId,
+        timestamp: Date.now()
+      };
+      
+      await this.kafkaService.sendMessage(kafkaMessage, KafkaTopics.WS_CHAT_MESSAGES);
+      
+      console.log(`📤 [WebSocketService] Client ${from} sent message to chat room ${chatRoomId} via Kafka`);
+    } catch (error) {
+      console.error("Error sending chat room message to Kafka:", error);
+      const client = this.clients.get(from);
+      if (client) {
+        this.sendToClient(client, { 
+          type: ServerMessageType.ERROR, 
+          message: "Failed to send message to chat room" 
+        });
+      }
     }
   }
 
@@ -219,7 +290,12 @@ export class WebSocketService {
 
   private sendToClient(client: WebSocket, message: any): void {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(message));
+      // Add direction field to all server messages
+      const messageWithDirection = {
+        ...message,
+        direction: "SEND_IN"
+      };
+      client.send(JSON.stringify(messageWithDirection));
     }
   }
 
@@ -292,6 +368,36 @@ export class WebSocketService {
         message: `Left chat room ${chatRoomId}`
       });
       console.log(`👋 [WebSocketService] Client ${clientId} left chat room ${chatRoomId}`);
+    }
+  }
+
+  /**
+   * Handle get chat rooms request from client
+   */
+  private handleGetChatRooms(clientId: string): void {
+    const allChatRoomIds = this.chatRoomManager.getAllChatRooms();
+    const chatRoomsInfo = allChatRoomIds.map(chatRoomId => {
+      const info = this.chatRoomManager.getChatRoomInfo(chatRoomId);
+      const participants = Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId));
+      return {
+        chatRoomId,
+        name: info?.name,
+        type: info?.type,
+        participantCount: participants.length,
+        participants: participants,
+        createdAt: info?.createdAt,
+        participantIds: info?.participantIds
+      };
+    });
+
+    const client = this.clients.get(clientId);
+    if (client) {
+      this.sendToClient(client, {
+        type: ServerMessageType.CHAT_ROOM_LIST,
+        totalCount: allChatRoomIds.length,
+        chatRooms: chatRoomsInfo
+      });
+      console.log(`📋 [WebSocketService] Sent chat room list to client ${clientId}: ${allChatRoomIds.length} rooms`);
     }
   }
 
