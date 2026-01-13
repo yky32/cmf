@@ -12,7 +12,7 @@ export interface KafkaConsumerManagerConfig {
  * Manages multiple Kafka consumers for different topics.
  * Each consumer is handled by a separate IConsumer implementation.
  */
-export class KafkaConsumerBaseManager {
+export class BaseKafkaManager {
   private kafka: Kafka;
   private consumers: Map<string, Consumer> = new Map();
   private consumerHandlers: Map<string, BaseConsumer> = new Map();

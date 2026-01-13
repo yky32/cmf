@@ -1,5 +1,5 @@
 import {KafkaService} from "./service/kafka-service";
-import {KafkaConsumerBaseManager} from "./manager/kafka-consumer-base-manager";
+import {BaseKafkaManager} from "./manager/base-kafka-manager";
 import {WebSocketService} from "./service/websocket-service";
 import {ChatRoomConsumer} from "./consumers/chat-room-consumer";
 import {ChatMessageConsumer} from "./consumers/chat-message-consumer";
@@ -26,7 +26,7 @@ async function startServer() {
         });
 
         // Initialize Kafka consumer manager
-        const consumerManager = new KafkaConsumerBaseManager({
+        const consumerManager = new BaseKafkaManager({
             broker: KAFKA_BROKER,
             clientId: "cmf-consumer-manager"
         });
