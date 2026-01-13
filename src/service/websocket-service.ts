@@ -325,28 +325,42 @@ export class WebSocketService {
       return;
     }
 
+    const wasAlreadyInRoom = this.chatRoomManager.isClientInRoom(clientId, chatRoomId);
     const success = this.chatRoomManager.joinChatRoom(clientId, chatRoomId);
     const client = this.clients.get(clientId);
     
     if (client && success) {
-      // Send confirmation
+      // Get all participants after join
+      const participants = Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId));
+      
+      // Send confirmation to the joining client
       this.sendToClient(client, {
         type: ServerMessageType.CHAT_ROOM_JOINED,
         chatRoomId: chatRoomId,
         message: `Successfully joined chat room ${chatRoomId}`
       });
 
-      // Send current online participants in the chat room
-      // Use optimized method to get participant count first
-      const participantCount = this.chatRoomManager.getChatRoomParticipantCount(chatRoomId);
-      const participants = participantCount > 0 
-        ? Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId))
-        : [];
+      // Send current online participants to the joining client
       this.sendToClient(client, {
         type: ServerMessageType.CHAT_ROOM_PARTICIPANTS_ONLINE,
         chatRoomId: chatRoomId,
         participants: participants
       });
+
+      // If this is a new join (not already in room), notify existing participants in real-time
+      if (!wasAlreadyInRoom) {
+        // Broadcast to all other participants in the room (excluding the new joiner)
+        const otherParticipants = participants.filter(p => p !== clientId);
+        if (otherParticipants.length > 0) {
+          // Notify existing participants that someone new joined
+          this.broadcastToChatRoom(chatRoomId, {
+            type: ServerMessageType.CHAT_ROOM_PARTICIPANT_JOINED,
+            chatRoomId: chatRoomId,
+            participantId: clientId,
+            participants: participants // Send updated full list
+          }, clientId); // Exclude the new joiner from this broadcast
+        }
+      }
 
       console.log(`✅ [WebSocketService] Client ${clientId} joined chat room ${chatRoomId}`);
     }
@@ -367,6 +381,10 @@ export class WebSocketService {
       return;
     }
 
+    // Get participants before leaving (to notify them)
+    const participantsBeforeLeave = Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId));
+    const wasInRoom = participantsBeforeLeave.includes(clientId);
+
     this.chatRoomManager.leaveChatRoom(clientId, chatRoomId);
     const client = this.clients.get(clientId);
     
@@ -376,8 +394,24 @@ export class WebSocketService {
         chatRoomId: chatRoomId,
         message: `Left chat room ${chatRoomId}`
       });
-      console.log(`👋 [WebSocketService] Client ${clientId} left chat room ${chatRoomId}`);
     }
+
+    // If client was actually in the room, notify remaining participants in real-time
+    if (wasInRoom) {
+      const remainingParticipants = Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId));
+      
+      // Notify remaining participants that someone left
+      if (remainingParticipants.length > 0) {
+        this.broadcastToChatRoom(chatRoomId, {
+          type: ServerMessageType.CHAT_ROOM_PARTICIPANT_LEFT,
+          chatRoomId: chatRoomId,
+          participantId: clientId,
+          participants: remainingParticipants // Send updated list without the leaver
+        });
+      }
+    }
+
+    console.log(`👋 [WebSocketService] Client ${clientId} left chat room ${chatRoomId}`);
   }
 
   /**
@@ -429,16 +463,27 @@ export class WebSocketService {
 
   /**
    * Broadcast chat room message to a specific chat room (not all clients)
+   * @param chatRoomId - The chat room ID to broadcast to
+   * @param message - The message to broadcast
+   * @param excludeClientId - Optional client ID to exclude from the broadcast
    */
-  broadcastToChatRoom(chatRoomId: string, message: any): void {
+  broadcastToChatRoom(chatRoomId: string, message: any, excludeClientId?: string): void {
     const participants = this.chatRoomManager.getChatRoomParticipants(chatRoomId);
     let sentCount = 0;
 
     console.log(`📡 [WebSocketService] Broadcasting to chat room ${chatRoomId}`);
     console.log(`   Total participants in room: ${participants.size}`);
     console.log(`   Connected clients: ${this.clients.size}`);
+    if (excludeClientId) {
+      console.log(`   Excluding client: ${excludeClientId}`);
+    }
 
     for (const clientId of participants) {
+      // Skip excluded client
+      if (excludeClientId && clientId === excludeClientId) {
+        continue;
+      }
+
       const client = this.clients.get(clientId);
       if (client) {
         this.sendToClient(client, message);
@@ -453,7 +498,7 @@ export class WebSocketService {
       console.log(`⚠️ [WebSocketService] No participants received message in chat room ${chatRoomId}`);
       console.log(`   Participants in room: ${Array.from(participants).join(', ') || 'none'}`);
     } else {
-      console.log(`✅ [WebSocketService] Broadcasted to chat room ${chatRoomId}: ${sentCount}/${participants.size} participants received`);
+      console.log(`✅ [WebSocketService] Broadcasted to chat room ${chatRoomId}: ${sentCount}/${participants.size - (excludeClientId ? 1 : 0)} participants received`);
     }
   }
 

@@ -55,6 +55,10 @@ export enum ServerMessageType {
   CHAT_ROOM_LEFT = "chat-room-left",
   /** Online participants in a chat room */
   CHAT_ROOM_PARTICIPANTS_ONLINE = "chat-room-participants-online",
+  /** Notification that a participant joined the chat room (real-time update) */
+  CHAT_ROOM_PARTICIPANT_JOINED = "chat-room-participant-joined",
+  /** Notification that a participant left the chat room (real-time update) */
+  CHAT_ROOM_PARTICIPANT_LEFT = "chat-room-participant-left",
   /** Response with list of all chat rooms and their info */
   CHAT_ROOM_LIST = "chat-room-list",
 }

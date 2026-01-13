@@ -257,75 +257,165 @@
         .message-log {
             flex: 1;
             overflow-y: auto;
-            background: #f9fafb;
+            background: #f3f4f6;
             border-radius: 6px;
-            padding: 15px;
+            padding: 20px;
             margin-bottom: 20px;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
 
         .message-entry {
-            margin-bottom: 12px;
-            padding: 10px;
-            background: white;
-            border-radius: 6px;
-            border-left: 4px solid #e5e7eb;
+            display: flex;
+            margin-bottom: 0;
+            max-width: 75%;
+            animation: slideIn 0.2s ease-out;
         }
 
-        .message-entry.incoming {
-            border-left-color: #10b981;
+        .message-entry.send-in {
+            align-self: flex-start;
         }
 
-        .message-entry.outgoing {
-            border-left-color: #667eea;
+        .message-entry.send-out {
+            align-self: flex-end;
         }
 
         .message-entry.error {
-            border-left-color: #ef4444;
+            align-self: center;
+            max-width: 90%;
         }
 
         .message-entry.system {
-            border-left-color: #f59e0b;
+            align-self: center;
+            max-width: 90%;
+        }
+
+        .message-bubble {
+            padding: 12px 16px;
+            border-radius: 18px;
+            position: relative;
+            word-wrap: break-word;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .message-entry.send-in .message-bubble {
+            background: #ffffff;
+            border-bottom-left-radius: 4px;
+            color: #1f2937;
+        }
+
+        .message-entry.send-out .message-bubble {
+            background: #667eea;
+            border-bottom-right-radius: 4px;
+            color: white;
+        }
+
+        .message-entry.error .message-bubble {
+            background: #fee2e2;
+            border-radius: 12px;
+            color: #991b1b;
+        }
+
+        .message-entry.system .message-bubble {
+            background: #fef3c7;
+            border-radius: 12px;
+            color: #92400e;
         }
 
         .message-header {
             display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
             font-size: 11px;
+            font-weight: 600;
+        }
+
+        .message-entry.send-in .message-header {
             color: #6b7280;
         }
 
+        .message-entry.send-out .message-header {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
         .message-type {
-            font-weight: 600;
             text-transform: uppercase;
+            font-size: 10px;
+            opacity: 0.8;
         }
 
         .message-direction {
             display: inline-block;
-            padding: 2px 8px;
+            padding: 2px 6px;
             border-radius: 4px;
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 700;
             text-transform: uppercase;
-            margin-right: 8px;
         }
 
-        .message-direction.send-in {
-            background: #d1fae5;
+        .message-entry.send-in .message-direction {
+            background: rgba(16, 185, 129, 0.2);
             color: #065f46;
         }
 
-        .message-direction.send-out {
-            background: #dbeafe;
-            color: #1e40af;
+        .message-entry.send-out .message-direction {
+            background: rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 0.95);
+        }
+
+        .message-timestamp {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-left: auto;
         }
 
         .message-content {
-            color: #333;
+            font-size: 14px;
+            line-height: 1.5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .message-entry.send-out .message-content {
+            color: white;
+        }
+
+        .message-content pre {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
             word-wrap: break-word;
+        }
+
+        .message-entry.send-in .message-content pre {
+            color: #1f2937;
+            background: rgba(0, 0, 0, 0.05);
+            padding: 8px;
+            border-radius: 6px;
+            margin-top: 6px;
+        }
+
+        .message-entry.send-out .message-content pre {
+            color: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.15);
+            padding: 8px;
+            border-radius: 6px;
+            margin-top: 6px;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .message-json {
@@ -536,9 +626,15 @@
             </div>
 
             <div class="section">
-                <h2>📋 Message Log</h2>
+                <h2>💬 Message Log</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div style="font-size: 12px; color: #6b7280;">
+                        <span style="color: #10b981;">●</span> SEND_IN (Left) | 
+                        <span style="color: #667eea;">●</span> SEND_OUT (Right)
+                    </div>
+                    <button class="btn-secondary" onclick="clearLog()" style="padding: 6px 12px; font-size: 12px;">Clear</button>
+                </div>
                 <div class="message-log" id="messageLog"></div>
-                <button class="btn-secondary clear-btn" onclick="clearLog()">Clear Log</button>
             </div>
         </div>
 
@@ -594,6 +690,8 @@
                         <li>chat-room-joined</li>
                         <li>chat-room-left</li>
                         <li>chat-room-participants-online</li>
+                        <li>chat-room-participant-joined</li>
+                        <li>chat-room-participant-left</li>
                         <li>chat-room-list</li>
                     </ul>
                 </div>
@@ -811,7 +909,28 @@
         function handleMessage(message) {
             // Extract direction from server message (defaults to SEND_IN if not present)
             const direction = message.direction || 'SEND_IN';
-            addLogEntry('incoming', message.type, JSON.stringify(message, null, 2), direction);
+            
+            // System messages should always be displayed
+            const isSystemMessage = ['welcome', 'error', 'kicked', 'client-list', 'client-connected', 
+                                    'client-disconnected', 'chat-room.created', 'chat-room-joined', 
+                                    'chat-room-left', 'chat-room-participants-online', 'chat-room-participant-joined',
+                                    'chat-room-participant-left', 'chat-room-list'].includes(message.type);
+            
+            // Skip displaying SEND_IN messages if they're from the same client (myself)
+            // These messages will already appear as SEND_OUT on the right side
+            // Check multiple possible fields where the sender ID might be stored
+            const isFromMyself = myClientId && !isSystemMessage && (
+                message.from === myClientId || 
+                message.clientId === myClientId
+            );
+            
+            // Only skip if it's a SEND_IN message from myself
+            // System messages and messages from others should always show
+            const shouldSkip = isFromMyself && direction === 'SEND_IN';
+            
+            if (!shouldSkip) {
+                addLogEntry('incoming', message.type, JSON.stringify(message, null, 2), direction);
+            }
 
             switch (message.type) {
                 case 'welcome':
@@ -874,14 +993,17 @@
                         document.getElementById('roomCount').textContent = chatRooms.size;
                     }
                     showToast('success', 'Joined chat room: ' + message.chatRoomId);
-                    // Query rooms again to get accurate server-side count and participant info
-                    setTimeout(() => getChatRooms(), 300);
+                    // No need to query - will receive participants-online message next
                     break;
 
                 case 'chat-room-left':
                     showToast('info', 'Left chat room: ' + message.chatRoomId);
-                    // Query rooms again to get accurate server-side count
-                    setTimeout(() => getChatRooms(), 300);
+                    // Update local state immediately
+                    if (chatRooms.has(message.chatRoomId)) {
+                        const room = chatRooms.get(message.chatRoomId);
+                        room.participants = room.participants.filter(p => p !== myClientId);
+                        updateChatRoomsList();
+                    }
                     break;
 
                 case 'chat-room-participants-online':
@@ -899,6 +1021,36 @@
                         room.participants = message.participants || [];
                     }
                     updateChatRoomsList();
+                    break;
+
+                case 'chat-room-participant-joined':
+                    // Real-time update: someone joined the chat room
+                    if (chatRooms.has(message.chatRoomId)) {
+                        const room = chatRooms.get(message.chatRoomId);
+                        // Update participants list with the new participant
+                        if (message.participants && Array.isArray(message.participants)) {
+                            room.participants = message.participants;
+                        } else if (message.participantId && !room.participants.includes(message.participantId)) {
+                            room.participants.push(message.participantId);
+                        }
+                        updateChatRoomsList();
+                        showToast('info', `Client ${message.participantId} joined chat room ${message.chatRoomId}`);
+                    }
+                    break;
+
+                case 'chat-room-participant-left':
+                    // Real-time update: someone left the chat room
+                    if (chatRooms.has(message.chatRoomId)) {
+                        const room = chatRooms.get(message.chatRoomId);
+                        // Update participants list without the leaver
+                        if (message.participants && Array.isArray(message.participants)) {
+                            room.participants = message.participants;
+                        } else if (message.participantId) {
+                            room.participants = room.participants.filter(p => p !== message.participantId);
+                        }
+                        updateChatRoomsList();
+                        showToast('info', `Client ${message.participantId} left chat room ${message.chatRoomId}`);
+                    }
                     break;
 
                 case 'chat-room-message-received':
@@ -970,9 +1122,7 @@
         function addLogEntry(type, messageType, content, direction = null) {
             const log = document.getElementById('messageLog');
             const entry = document.createElement('div');
-            entry.className = 'message-entry ' + type;
             
-            const timestamp = new Date().toLocaleString();
             // Use direction from parameter, or try to extract from content if it's JSON
             let displayDirection = direction;
             if (!displayDirection && content) {
@@ -984,19 +1134,60 @@
                 }
             }
             
-            const directionBadge = displayDirection ? `<span class="message-direction ${displayDirection.toLowerCase().replace('_', '-')}">${displayDirection}</span>` : '';
+            // Determine direction class
+            let directionClass = '';
+            if (displayDirection) {
+                directionClass = displayDirection.toLowerCase().replace('_', '-');
+            } else if (type === 'incoming') {
+                directionClass = 'send-in';
+            } else if (type === 'outgoing') {
+                directionClass = 'send-out';
+            }
+            
+            entry.className = `message-entry ${type} ${directionClass}`;
+            
+            const timestamp = new Date().toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            
+            // Format content - if it's JSON, try to make it more readable
+            let formattedContent = content;
+            let isJSON = false;
+            try {
+                const parsed = JSON.parse(content);
+                isJSON = true;
+                // Remove direction from display if it's in the JSON
+                const { direction: _, ...rest } = parsed;
+                formattedContent = JSON.stringify(rest, null, 2);
+            } catch (e) {
+                // Not JSON, use as-is
+            }
+            
+            // Wrap JSON in <pre> tag for better formatting
+            if (isJSON) {
+                formattedContent = `<pre>${formattedContent}</pre>`;
+            }
+            
+            const directionBadge = displayDirection ? `<span class="message-direction ${directionClass}">${displayDirection}</span>` : '';
+            
             entry.innerHTML = `
-                <div class="message-header">
-                    <div>
+                <div class="message-bubble">
+                    <div class="message-header">
                         ${directionBadge}
                         <span class="message-type">${messageType}</span>
+                        <span class="message-timestamp">${timestamp}</span>
                     </div>
-                    <span>${timestamp}</span>
+                    <div class="message-content">${formattedContent}</div>
                 </div>
-                <div class="message-content">${content}</div>
             `;
             
-            log.insertBefore(entry, log.firstChild);
+            // Insert at the end (bottom) for chat-like behavior
+            log.appendChild(entry);
+            
+            // Auto-scroll to bottom
+            log.scrollTop = log.scrollHeight;
         }
 
         function clearLog() {
