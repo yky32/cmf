@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CMF WebSocket Client - Test Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 300px 1fr 350px;
+            gap: 20px;
+            height: calc(100vh - 40px);
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            overflow-y: auto;
+        }
+
+        .main-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #555;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            background: #f5f5f5;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connected {
+            background: #10b981;
+            animation: none;
+        }
+
+        .status-indicator.connecting {
+            background: #f59e0b;
+        }
+
+        .status-indicator.disconnected {
+            background: #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .connection-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        .message-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .message-input-group input {
+            flex: 1;
+        }
+
+        .message-input-group button {
+            min-width: 100px;
+        }
+
+        .client-list {
+            list-style: none;
+        }
+
+        .client-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #f9fafb;
+            border-radius: 6px;
+            border-left: 4px solid #e5e7eb;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .client-item:hover {
+            background: #f3f4f6;
+            border-left-color: #667eea;
+        }
+
+        .client-item.current {
+            background: #ede9fe;
+            border-left-color: #667eea;
+            font-weight: 600;
+        }
+
+        .client-item .client-id {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .chat-room-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f9fafb;
+            border-radius: 6px;
+            border: 2px solid #e5e7eb;
+        }
+
+        .chat-room-item.active {
+            border-color: #667eea;
+            background: #ede9fe;
+        }
+
+        .chat-room-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .chat-room-id {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .chat-room-participants {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+
+        .chat-room-controls {
+            display: flex;
+            gap: 5px;
+            margin-top: 8px;
+        }
+
+        .chat-room-controls button {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .message-log {
+            flex: 1;
+            overflow-y: auto;
+            background: #f9fafb;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .message-entry {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border-left: 4px solid #e5e7eb;
+        }
+
+        .message-entry.incoming {
+            border-left-color: #10b981;
+        }
+
+        .message-entry.outgoing {
+            border-left-color: #667eea;
+        }
+
+        .message-entry.error {
+            border-left-color: #ef4444;
+        }
+
+        .message-entry.system {
+            border-left-color: #f59e0b;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        .message-type {
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .message-direction {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-right: 8px;
+        }
+
+        .message-direction.send-in {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .message-direction.send-out {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .message-content {
+            color: #333;
+            word-wrap: break-word;
+        }
+
+        .message-json {
+            margin-top: 8px;
+            padding: 8px;
+            background: #1f2937;
+            color: #10b981;
+            border-radius: 4px;
+            font-size: 11px;
+            overflow-x: auto;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+            max-width: 400px;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.success {
+            border-left: 4px solid #10b981;
+        }
+
+        .toast.error {
+            border-left: 4px solid #ef4444;
+        }
+
+        .toast.info {
+            border-left: 4px solid #667eea;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .toast-message {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .clear-btn {
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .action-buttons button {
+            width: 100%;
+        }
+
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            .panel {
+                max-height: 600px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Left Panel: Connection & Controls -->
+        <div class="panel">
+            <h1>🔌 Connection</h1>
+            
+            <div class="status">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span id="statusText">Disconnected</span>
+            </div>
+
+            <div class="connection-controls">
+                <input type="text" id="serverUrl" placeholder="ws://localhost:8088" value="ws://localhost:8088">
+                <button class="btn-primary" id="connectBtn" onclick="connect()">Connect</button>
+                <button class="btn-danger" id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+            </div>
+
+            <div class="section">
+                <h2>📊 Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="clientCount">0</div>
+                        <div class="stat-label">Clients</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="roomCount">0</div>
+                        <div class="stat-label">Chat Rooms</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>👥 Clients</h2>
+                <ul class="client-list" id="clientList"></ul>
+            </div>
+
+            <div class="section">
+                <h2>🏠 Chat Rooms</h2>
+                <div id="chatRoomsList"></div>
+            </div>
+        </div>
+
+        <!-- Center Panel: Main Actions & Messages -->
+        <div class="panel main-panel">
+            <h1>💬 Message Testing</h1>
+
+            <div class="section">
+                <h2>📢 Broadcast to All (via Kafka)</h2>
+                <div class="message-input-group">
+                    <input type="text" id="broadcastMessage" placeholder="Enter message to broadcast to all clients">
+                    <button class="btn-primary" onclick="sendBroadcast()">Broadcast</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>📨 Direct Message</h2>
+                <div class="message-input-group">
+                    <input type="text" id="targetClientId" placeholder="Target client ID">
+                    <input type="text" id="directMessage" placeholder="Enter direct message">
+                    <button class="btn-success" onclick="sendDirectMessage()">Send</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>👢 Client Management</h2>
+                <div class="action-buttons">
+                    <div class="message-input-group">
+                        <input type="text" id="kickClientId" placeholder="Client ID to kick">
+                        <button class="btn-danger" onclick="kickClient()">Kick One</button>
+                    </div>
+                    <button class="btn-danger" onclick="kickAll()">Kick All</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>🏠 Chat Room Management</h2>
+                <div class="message-input-group">
+                    <button class="btn-primary" onclick="getChatRooms()" style="width: 100%;">Query Chat Rooms</button>
+                </div>
+                <div class="message-input-group">
+                    <input type="text" id="joinRoomId" placeholder="Chat room ID">
+                    <button class="btn-success" onclick="joinRoom()">Join Room</button>
+                </div>
+                <div class="message-input-group">
+                    <input type="text" id="leaveRoomId" placeholder="Chat room ID">
+                    <button class="btn-secondary" onclick="leaveRoom()">Leave Room</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>💬 Send Message to Chat Room</h2>
+                <div class="message-input-group">
+                    <input type="text" id="chatRoomMessageRoomId" placeholder="Chat room ID">
+                    <input type="text" id="chatRoomMessage" placeholder="Enter message for chat room">
+                    <button class="btn-success" onclick="sendChatRoomMessage()">Send</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>📋 Message Log</h2>
+                <div class="message-log" id="messageLog"></div>
+                <button class="btn-secondary clear-btn" onclick="clearLog()">Clear Log</button>
+            </div>
+        </div>
+
+        <!-- Right Panel: Server Info & Health -->
+        <div class="panel">
+            <h1>📡 Server Info</h1>
+
+            <div class="section">
+                <h2>🏥 Health Check</h2>
+                <button class="btn-primary" onclick="checkHealth()" style="width: 100%; margin-bottom: 10px;">Check Health</button>
+                <div id="healthInfo" style="font-size: 12px; color: #6b7280;"></div>
+            </div>
+
+            <div class="section">
+                <h2>📊 Statistics</h2>
+                <button class="btn-primary" onclick="checkStats()" style="width: 100%; margin-bottom: 10px;">Get Stats</button>
+                <div id="statsInfo" style="font-size: 12px; color: #6b7280;"></div>
+            </div>
+
+            <div class="section">
+                <h2>ℹ️ Client Info</h2>
+                <div style="font-size: 13px;">
+                    <p><strong>Your Client ID:</strong></p>
+                    <p id="myClientId" style="color: #667eea; font-weight: 600; margin-top: 5px;">-</p>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>📝 Message Types</h2>
+                <div style="font-size: 12px; line-height: 1.8;">
+                    <p><strong>Client → Server:</strong></p>
+                    <ul style="margin-left: 20px; color: #6b7280;">
+                        <li>broadcast-all</li>
+                        <li>broadcast-one</li>
+                        <li>kick-one</li>
+                        <li>kick-all</li>
+                        <li>join-chat-room</li>
+                        <li>leave-chat-room</li>
+                        <li>get-chat-rooms</li>
+                        <li>send-chat-room-message</li>
+                    </ul>
+                    <p style="margin-top: 10px;"><strong>Server → Client:</strong></p>
+                    <ul style="margin-left: 20px; color: #6b7280;">
+                        <li>welcome</li>
+                        <li>direct</li>
+                        <li>error</li>
+                        <li>kicked</li>
+                        <li>client-list</li>
+                        <li>client-connected</li>
+                        <li>client-disconnected</li>
+                        <li>chat-room-message-received</li>
+                        <li>chat-room.created</li>
+                        <li>chat-room-joined</li>
+                        <li>chat-room-left</li>
+                        <li>chat-room-participants-online</li>
+                        <li>chat-room-list</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let myClientId = null;
+        let clients = [];
+        let chatRooms = new Map();
+
+        function updateStatus(status, text) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            
+            indicator.className = 'status-indicator ' + status;
+            statusText.textContent = text;
+        }
+
+        function connect() {
+            const url = document.getElementById('serverUrl').value;
+            if (!url) {
+                showToast('error', 'Please enter a server URL');
+                return;
+            }
+
+            updateStatus('connecting', 'Connecting...');
+            
+            try {
+                ws = new WebSocket(url);
+
+                ws.onopen = () => {
+                    updateStatus('connected', 'Connected');
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                    showToast('success', 'Connected to server');
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        handleMessage(message);
+                    } catch (e) {
+                        console.error('Error parsing message:', e);
+                        addLogEntry('error', 'Error', 'Failed to parse message: ' + event.data, 'SEND_IN');
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    showToast('error', 'WebSocket error occurred');
+                    addLogEntry('error', 'Error', 'WebSocket error: ' + error, 'SEND_IN');
+                };
+
+                ws.onclose = () => {
+                    updateStatus('disconnected', 'Disconnected');
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    myClientId = null;
+                    clients = [];
+                    chatRooms.clear();
+                    updateClientList();
+                    updateChatRoomsList();
+                    document.getElementById('roomCount').textContent = '0';
+                    document.getElementById('clientCount').textContent = '0';
+                    showToast('info', 'Disconnected from server');
+                };
+
+            } catch (error) {
+                updateStatus('disconnected', 'Connection Failed');
+                showToast('error', 'Failed to connect: ' + error.message);
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function sendMessage(message) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showToast('error', 'Not connected to server');
+                return;
+            }
+
+            try {
+                // Add direction field to outgoing messages for logging
+                const messageWithDirection = {
+                    ...message,
+                    direction: "SEND_OUT"
+                };
+                // Note: We don't send direction to server, it's only for client-side logging
+                ws.send(JSON.stringify(message));
+                addLogEntry('outgoing', message.type, JSON.stringify(messageWithDirection, null, 2), 'SEND_OUT');
+            } catch (error) {
+                showToast('error', 'Failed to send message: ' + error.message);
+            }
+        }
+
+        function sendBroadcast() {
+            const message = document.getElementById('broadcastMessage').value;
+            if (!message) {
+                showToast('error', 'Please enter a message');
+                return;
+            }
+
+            sendMessage({
+                type: 'broadcast-all',
+                message: message
+            });
+
+            document.getElementById('broadcastMessage').value = '';
+        }
+
+        function sendDirectMessage() {
+            const targetId = document.getElementById('targetClientId').value;
+            const message = document.getElementById('directMessage').value;
+
+            if (!targetId || !message) {
+                showToast('error', 'Please enter both target ID and message');
+                return;
+            }
+
+            sendMessage({
+                type: 'broadcast-one',
+                targetId: targetId,
+                message: message
+            });
+
+            document.getElementById('directMessage').value = '';
+        }
+
+        function kickClient() {
+            const targetId = document.getElementById('kickClientId').value;
+            if (!targetId) {
+                showToast('error', 'Please enter a client ID');
+                return;
+            }
+
+            sendMessage({
+                type: 'kick-one',
+                targetId: targetId
+            });
+
+            document.getElementById('kickClientId').value = '';
+        }
+
+        function kickAll() {
+            if (confirm('Are you sure you want to kick all clients?')) {
+                sendMessage({
+                    type: 'kick-all'
+                });
+            }
+        }
+
+        function joinRoom() {
+            const roomId = document.getElementById('joinRoomId').value;
+            if (!roomId) {
+                showToast('error', 'Please enter a chat room ID');
+                return;
+            }
+
+            sendMessage({
+                type: 'join-chat-room',
+                chatRoomId: roomId
+            });
+
+            document.getElementById('joinRoomId').value = '';
+        }
+
+        function leaveRoom() {
+            const roomId = document.getElementById('leaveRoomId').value;
+            if (!roomId) {
+                showToast('error', 'Please enter a chat room ID');
+                return;
+            }
+
+            sendMessage({
+                type: 'leave-chat-room',
+                chatRoomId: roomId
+            });
+
+            document.getElementById('leaveRoomId').value = '';
+        }
+
+        function getChatRooms() {
+            sendMessage({
+                type: 'get-chat-rooms'
+            });
+            showToast('info', 'Querying chat rooms...');
+        }
+
+        function sendChatRoomMessage() {
+            const roomId = document.getElementById('chatRoomMessageRoomId').value;
+            const message = document.getElementById('chatRoomMessage').value;
+
+            if (!roomId || !message) {
+                showToast('error', 'Please enter both chat room ID and message');
+                return;
+            }
+
+            sendMessage({
+                type: 'send-chat-room-message',
+                chatRoomId: roomId,
+                message: message
+            });
+
+            document.getElementById('chatRoomMessage').value = '';
+        }
+
+        function handleMessage(message) {
+            // Extract direction from server message (defaults to SEND_IN if not present)
+            const direction = message.direction || 'SEND_IN';
+            addLogEntry('incoming', message.type, JSON.stringify(message, null, 2), direction);
+
+            switch (message.type) {
+                case 'welcome':
+                    myClientId = message.clientId;
+                    document.getElementById('myClientId').textContent = myClientId;
+                    showToast('success', 'Welcome! Your ID: ' + myClientId);
+                    break;
+
+                case 'client-list':
+                    clients = message.clients || [];
+                    updateClientList();
+                    document.getElementById('clientCount').textContent = clients.length;
+                    break;
+
+                case 'client-connected':
+                    showToast('info', 'Client connected: ' + message.clientId);
+                    break;
+
+                case 'client-disconnected':
+                    showToast('info', 'Client disconnected: ' + message.clientId);
+                    break;
+
+                case 'direct':
+                    showToast('info', `Direct message from ${message.from}: ${message.message}`);
+                    break;
+
+                case 'error':
+                    showToast('error', 'Error: ' + message.message);
+                    break;
+
+                case 'kicked':
+                    showToast('error', 'You have been kicked: ' + message.message);
+                    disconnect();
+                    break;
+
+                case 'chat-room.created':
+                    if (!chatRooms.has(message.chatRoomId)) {
+                        chatRooms.set(message.chatRoomId, {
+                            id: message.chatRoomId,
+                            name: message.name || message.chatRoomId,
+                            type: message.type,
+                            participants: []
+                        });
+                        updateChatRoomsList();
+                        document.getElementById('roomCount').textContent = chatRooms.size;
+                        showToast('info', 'Chat room created: ' + message.chatRoomId);
+                    }
+                    break;
+
+                case 'chat-room-joined':
+                    // Add room to local map if not exists
+                    if (!chatRooms.has(message.chatRoomId)) {
+                        chatRooms.set(message.chatRoomId, {
+                            id: message.chatRoomId,
+                            name: message.chatRoomId,
+                            type: undefined,
+                            participants: []
+                        });
+                        updateChatRoomsList();
+                        document.getElementById('roomCount').textContent = chatRooms.size;
+                    }
+                    showToast('success', 'Joined chat room: ' + message.chatRoomId);
+                    // Query rooms again to get accurate server-side count and participant info
+                    setTimeout(() => getChatRooms(), 300);
+                    break;
+
+                case 'chat-room-left':
+                    showToast('info', 'Left chat room: ' + message.chatRoomId);
+                    // Query rooms again to get accurate server-side count
+                    setTimeout(() => getChatRooms(), 300);
+                    break;
+
+                case 'chat-room-participants-online':
+                    // Add room to local map if not exists (might happen if we join before receiving room list)
+                    if (!chatRooms.has(message.chatRoomId)) {
+                        chatRooms.set(message.chatRoomId, {
+                            id: message.chatRoomId,
+                            name: message.chatRoomId,
+                            type: undefined,
+                            participants: message.participants || []
+                        });
+                        document.getElementById('roomCount').textContent = chatRooms.size;
+                    } else {
+                        const room = chatRooms.get(message.chatRoomId);
+                        room.participants = message.participants || [];
+                    }
+                    updateChatRoomsList();
+                    break;
+
+                case 'chat-room-message-received':
+                    showToast('info', `Message in ${message.chatRoomId} from ${message.from}: ${message.message || message.content}`);
+                    break;
+
+                case 'chat-room-list':
+                    // Update chat rooms map with received data
+                    if (message.chatRooms && Array.isArray(message.chatRooms)) {
+                        chatRooms.clear();
+                        message.chatRooms.forEach(room => {
+                            chatRooms.set(room.chatRoomId, {
+                                id: room.chatRoomId,
+                                name: room.name || room.chatRoomId,
+                                type: room.type,
+                                participants: room.participants || []
+                            });
+                        });
+                        updateChatRoomsList();
+                        document.getElementById('roomCount').textContent = message.totalCount || chatRooms.size;
+                        showToast('success', `Found ${message.totalCount || 0} chat room(s)`);
+                    }
+                    break;
+            }
+        }
+
+        function updateClientList() {
+            const list = document.getElementById('clientList');
+            list.innerHTML = '';
+
+            clients.forEach(clientId => {
+                const item = document.createElement('li');
+                item.className = 'client-item' + (clientId === myClientId ? ' current' : '');
+                item.innerHTML = `<span class="client-id">${clientId}</span>`;
+                item.onclick = () => {
+                    document.getElementById('targetClientId').value = clientId;
+                    document.getElementById('kickClientId').value = clientId;
+                };
+                list.appendChild(item);
+            });
+        }
+
+        function updateChatRoomsList() {
+            const container = document.getElementById('chatRoomsList');
+            container.innerHTML = '';
+
+            chatRooms.forEach((room, roomId) => {
+                const div = document.createElement('div');
+                div.className = 'chat-room-item';
+                div.innerHTML = `
+                    <div class="chat-room-header">
+                        <span class="chat-room-id">${roomId}</span>
+                    </div>
+                    ${room.name ? `<div style="font-size: 12px; color: #6b7280;">${room.name}</div>` : ''}
+                    <div class="chat-room-participants">
+                        Participants: ${room.participants.length}
+                        ${room.participants.length > 0 ? `(${room.participants.join(', ')})` : ''}
+                    </div>
+                    <div class="chat-room-controls">
+                        <button class="btn-success" onclick="document.getElementById('joinRoomId').value='${roomId}'; joinRoom();" style="font-size: 11px; padding: 4px 8px;">Join</button>
+                        <button class="btn-secondary" onclick="document.getElementById('leaveRoomId').value='${roomId}'; leaveRoom();" style="font-size: 11px; padding: 4px 8px;">Leave</button>
+                        <button class="btn-primary" onclick="document.getElementById('chatRoomMessageRoomId').value='${roomId}';" style="font-size: 11px; padding: 4px 8px;">Send Msg</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function addLogEntry(type, messageType, content, direction = null) {
+            const log = document.getElementById('messageLog');
+            const entry = document.createElement('div');
+            entry.className = 'message-entry ' + type;
+            
+            const timestamp = new Date().toLocaleString();
+            // Use direction from parameter, or try to extract from content if it's JSON
+            let displayDirection = direction;
+            if (!displayDirection && content) {
+                try {
+                    const parsed = JSON.parse(content);
+                    displayDirection = parsed.direction || null;
+                } catch (e) {
+                    // Not JSON, ignore
+                }
+            }
+            
+            const directionBadge = displayDirection ? `<span class="message-direction ${displayDirection.toLowerCase().replace('_', '-')}">${displayDirection}</span>` : '';
+            entry.innerHTML = `
+                <div class="message-header">
+                    <div>
+                        ${directionBadge}
+                        <span class="message-type">${messageType}</span>
+                    </div>
+                    <span>${timestamp}</span>
+                </div>
+                <div class="message-content">${content}</div>
+            `;
+            
+            log.insertBefore(entry, log.firstChild);
+        }
+
+        function clearLog() {
+            document.getElementById('messageLog').innerHTML = '';
+        }
+
+        function showToast(type, message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast ' + type;
+            toast.innerHTML = `
+                <div class="toast-title">${type === 'error' ? '❌ Error' : type === 'success' ? '✅ Success' : 'ℹ️ Info'}</div>
+                <div class="toast-message">${message}</div>
+            `;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        async function checkHealth() {
+            const url = document.getElementById('serverUrl').value.replace('ws://', 'http://').replace('wss://', 'https://');
+            try {
+                const response = await fetch(url + '/health');
+                const data = await response.json();
+                document.getElementById('healthInfo').innerHTML = `
+                    <pre style="background: #f9fafb; padding: 10px; border-radius: 6px; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                document.getElementById('healthInfo').innerHTML = `<div style="color: #ef4444;">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function checkStats() {
+            const url = document.getElementById('serverUrl').value.replace('ws://', 'http://').replace('wss://', 'https://');
+            try {
+                const response = await fetch(url + '/stats');
+                const data = await response.json();
+                document.getElementById('statsInfo').innerHTML = `
+                    <pre style="background: #f9fafb; padding: 10px; border-radius: 6px; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                document.getElementById('statsInfo').innerHTML = `<div style="color: #ef4444;">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Allow Enter key to send messages
+        document.getElementById('broadcastMessage').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendBroadcast();
+        });
+
+        document.getElementById('directMessage').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendDirectMessage();
+        });
+
+        document.getElementById('joinRoomId').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') joinRoom();
+        });
+
+        document.getElementById('leaveRoomId').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') leaveRoom();
+        });
+
+        document.getElementById('chatRoomMessage').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendChatRoomMessage();
+        });
+    </script>
+</body>
+</html>
