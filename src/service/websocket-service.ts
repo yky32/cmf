@@ -425,7 +425,7 @@ export class WebSocketService {
       }
     }
 
-    console.log(`👋 [WebSocketService] Client ${clientId} left chat room ${chatRoomId}`);
+      console.log(`👋 [WebSocketService] Client ${clientId} left chat room ${chatRoomId}`);
   }
 
   /**
