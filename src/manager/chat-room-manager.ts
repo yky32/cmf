@@ -19,14 +19,14 @@ export interface ChatRoomInfo {
     participantIds?: string[];
 }
 
-interface ChatRoomData {
+interface ChatRoomMetadata {
     participants: Set<string>;
     info: ChatRoomInfo;
 }
 
 export class ChatRoomManager {
-    // Map of chatRoomKey -> ChatRoomData (combines participants and info for better locality)
-    private chatRooms: Map<string, ChatRoomData> = new Map();
+    // Map of chatRoomKey -> ChatRoomMetadata (combines participants and info for better locality)
+    private chatRooms: Map<string, ChatRoomMetadata> = new Map();
     
     // Map of clientId -> Set of chatRoomKeys the client is in (for fast lookup)
     private clientChatRooms: Map<string, Set<string>> = new Map();
