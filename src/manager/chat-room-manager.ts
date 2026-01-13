@@ -11,7 +11,7 @@
  * - Better memory management
  */
 
-import { ChatRoomInfo, ChatRoomMetadata } from "../enu/events/chat-room-events";
+import { ChatRoomInfo, ChatRoomMetadata } from "../enu/events";
 
 export class ChatRoomManager {
     // Map of chatRoomKey -> ChatRoomMetadata (combines participants and info for better locality)
@@ -29,6 +29,7 @@ export class ChatRoomManager {
      * Format: "chat_room_" + chatRoomId
      */
     static getChatRoomKey(chatRoomId: string): string {
+        // chat_room_cr_7416747192586600448
         return `chat_room_${chatRoomId}`;
     }
 
