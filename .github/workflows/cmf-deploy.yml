@@ -16,7 +16,8 @@ env:
   NODE_VERSION: "20"
   DOCTL_VERSION: "1.127.0"
   CLUSTER_NAME: "k8s-tgt"
-  NAMESPACE: "default"
+  NAMESPACE: "tgt"
+  DEPLOYMENT_NAME: "cmf-app"
   IMAGE_REPO: "registry.digitalocean.com/qs-ecr/cmf"
   IMAGE_TAG: "latest"
 
