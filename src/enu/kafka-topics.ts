@@ -11,7 +11,10 @@ export const KafkaTopics = {
   
   // Chat room events from Spring Boot
   CHAT_ROOM: process.env.CHAT_ROOM_TOPIC || "messenger.chat-room",
-  
+
+  // Chat room last activity at events from Spring Boot
+  CHAT_ROOM_LAST_ACTIVITY_AT: process.env.CHAT_ROOM_LAST_ACTIVITY_AT = "messenger.chat-room.last-activity-at",
+
   // Internal chat processing (if needed)
   CHAT: process.env.CHAT_TOPIC || "messenger.chat",
 } as const;
