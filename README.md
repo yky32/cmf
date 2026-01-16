@@ -1,6 +1,6 @@
 # CMF - WebSocket + Kafka Server
 
-v1
+v2
 
 **CMF** (Communication Message Framework) is a high-performance, real-time messaging server that seamlessly integrates WebSocket connections with Apache Kafka. Built with TypeScript and Node.js, CMF enables scalable, distributed real-time communication by combining the low-latency benefits of WebSocket with the robust message streaming capabilities of Kafka.
 
