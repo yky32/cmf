@@ -78,7 +78,6 @@ jobs:
           status: "success"
           repo: ${{ github.repository }}
           run_number: ${{ github.run_number }}
-          message: "🎨 CMF Client deployed to ${{ github.event.inputs.environment }} environment!"
 
       - name: 📣 Notify Discord on Failure
         if: needs.deploy-client.result != 'success'
@@ -88,4 +87,3 @@ jobs:
           status: "failure"
           repo: ${{ github.repository }}
           run_number: ${{ github.run_number }}
-          message: "❌ CMF Client deployment to ${{ github.event.inputs.environment }} failed!"

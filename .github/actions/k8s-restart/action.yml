@@ -43,3 +43,4 @@ runs:
       run: |
         echo "📊 Check Status garbage collection..."
         doctl registry garbage-collection get-active
+

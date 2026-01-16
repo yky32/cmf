@@ -76,51 +76,26 @@ jobs:
           namespace: ${{ env.NAMESPACE }}
           deployment: ${{ env.DEPLOYMENT_NAME }}
 
-  deploy-client:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: ☑️ Checkout code
-        uses: actions/checkout@v4
-
-      - name: 🔐 Authenticate with DigitalOcean
-        uses: ./.github/actions/doctl-auth
-        with:
-          token: ${{ secrets.DIGITAL_OCEAN_DEPLOY_TOKEN }}
-          doctl_version: ${{ env.DOCTL_VERSION }}
-
-      - name: 🎨 Deploy Client Simulator
-        uses: ./.github/actions/k8s-helm-deploy
-        with:
-          cluster_name: ${{ env.CLUSTER_NAME }}
-          namespace: ${{ env.NAMESPACE }}
-          chart_path: "./k8s/cmf-client"
-          release_name: "cmf-client"
-          values_file: "./k8s/cmf-client/values-prd.yaml"
-
   notify:
-    needs: [build-and-push, deploy-client]
+    needs: build-and-push
     runs-on: ubuntu-latest
     if: always() && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
       - name: 📣 Notify Discord on Success
-        if: needs.build-and-push.result == 'success' && needs.deploy-client.result == 'success'
+        if: needs.build-and-push.result == 'success'
         uses: ./.github/actions/notify-discord
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           status: "success"
           repo: ${{ github.repository }}
           run_number: ${{ github.run_number }}
-          message: "🚀 CMF Server and Client deployed successfully!"
 
       - name: 📣 Notify Discord on Failure
-        if: needs.build-and-push.result != 'success' || needs.deploy-client.result != 'success'
+        if: needs.build-and-push.result != 'success'
         uses: ./.github/actions/notify-discord
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           status: "failure"
           repo: ${{ github.repository }}
           run_number: ${{ github.run_number }}
-          message: "❌ CMF deployment failed!"
