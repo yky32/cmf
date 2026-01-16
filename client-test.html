@@ -1106,28 +1106,9 @@
             // Extract direction from server message (defaults to SEND_IN if not present)
             const direction = message.direction || 'SEND_IN';
             
-            // System messages should always be displayed
-            const isSystemMessage = ['welcome', 'error', 'kicked', 'client-list', 'client-connected', 
-                                    'client-disconnected', 'chat-room.created', 'chat-room-joined', 
-                                    'chat-room-left', 'chat-room-participants-online', 'chat-room-participant-joined',
-                                    'chat-room-participant-left', 'chat-room-typing', 'chat-room-typing-stopped',
-                                    'chat-room-list'].includes(message.type);
-            
-            // Skip displaying SEND_IN messages if they're from the same client (myself)
-            // These messages will already appear as SEND_OUT on the right side
-            // Check multiple possible fields where the sender ID might be stored
-            const isFromMyself = myClientId && !isSystemMessage && (
-                message.from === myClientId || 
-                message.clientId === myClientId
-            );
-            
-            // Only skip if it's a SEND_IN message from myself
-            // System messages and messages from others should always show
-            const shouldSkip = isFromMyself && direction === 'SEND_IN';
-            
-            if (!shouldSkip) {
-                addLogEntry('incoming', message.type, JSON.stringify(message, null, 2), direction);
-            }
+            // Display all incoming messages - filtering is now handled purely in the backend
+            // The backend will not send messages from the sender back to them via websocket
+            addLogEntry('incoming', message.type, JSON.stringify(message, null, 2), direction);
 
             switch (message.type) {
                 case 'welcome':

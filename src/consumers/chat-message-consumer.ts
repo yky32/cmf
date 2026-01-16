@@ -54,7 +54,11 @@ export class ChatMessageConsumer implements BaseConsumer {
             console.log(`   SentTimestamp: ${timestamp}`);
             console.log(`   ReadAt: ${chatMessage.readAt || 'N/A'}`);
 
-            // Broadcast to participants in the specific chat room only
+            // Extract sender's client ID to exclude from receiving their own message
+            // The sender already sees their message as SEND_OUT, so we don't need to send it back via websocket
+            const senderClientId = chatMessage.from;
+
+            // Broadcast to participants in the specific chat room only, excluding the sender
             this.webSocketService.broadcastChatMessage({
                 chatRoomId: chatRoomId,
                 messageId: chatMessage.messageId,
@@ -65,9 +69,9 @@ export class ChatMessageConsumer implements BaseConsumer {
                 sentTimestamp: timestamp,
                 readAt: chatMessage.readAt,
                 timestamp: timestamp  // Include for backward compatibility
-            });
+            }, senderClientId); // Exclude sender from receiving their own message
 
-            console.log(`✅ [ChatMessageConsumer] Successfully broadcasted message to chat room ${chatRoomId} participants`);
+            console.log(`✅ [ChatMessageConsumer] Successfully broadcasted message to chat room ${chatRoomId} participants (excluded sender: ${senderClientId})`);
         } catch (error) {
             console.error(`❌ [ChatMessageConsumer] Error processing message:`, error);
             console.error(`   Message that caused error:`, JSON.stringify(message, null, 2));

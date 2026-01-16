@@ -577,23 +577,38 @@ export class WebSocketService {
   /**
    * Broadcast chat room message to a specific chat room
    * Falls back to broadcasting to all if chatRoomId is not provided
+   * @param message - The message to broadcast
+   * @param excludeClientId - Optional client ID to exclude from receiving the message (e.g., the sender)
    */
-  broadcastChatMessage(message: any): void {
+  broadcastChatMessage(message: any, excludeClientId?: string): void {
     const chatRoomId = message.chatRoomId;
     
     if (chatRoomId) {
-      // Broadcast to specific chat room
+      // Broadcast to specific chat room, excluding the sender if provided
       this.broadcastToChatRoom(chatRoomId, {
         type: ServerMessageType.CHAT_ROOM_MESSAGE_RECEIVED,
         ...message
-      });
+      }, excludeClientId);
     } else {
       // Fallback: broadcast to all (backward compatibility)
-      this.broadcastToAll({
-        type: ServerMessageType.CHAT_ROOM_MESSAGE_RECEIVED,
-        ...message
-      });
-      console.log(`📤 [WebSocketService] Broadcasted chat room message to all ${this.clients.size} clients (no chatRoomId)`);
+      // If excludeClientId is provided, skip that client
+      if (excludeClientId) {
+        for (const [clientId, client] of this.clients) {
+          if (clientId !== excludeClientId) {
+            this.sendToClient(client, {
+              type: ServerMessageType.CHAT_ROOM_MESSAGE_RECEIVED,
+              ...message
+            });
+          }
+        }
+        console.log(`📤 [WebSocketService] Broadcasted chat room message to all ${this.clients.size - 1} clients (excluded sender: ${excludeClientId})`);
+      } else {
+        this.broadcastToAll({
+          type: ServerMessageType.CHAT_ROOM_MESSAGE_RECEIVED,
+          ...message
+        });
+        console.log(`📤 [WebSocketService] Broadcasted chat room message to all ${this.clients.size} clients (no chatRoomId)`);
+      }
     }
   }
 
