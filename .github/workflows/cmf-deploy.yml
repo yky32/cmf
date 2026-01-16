@@ -68,15 +68,13 @@ jobs:
           repo: ${{ env.IMAGE_REPO }}
           image_tag: ${{ env.IMAGE_TAG }}
 
-      - name: 🚀 Deploy to Kubernetes
+      - name: 🥤 Restart K8s Deployment
         id: set-output
-        uses: ./.github/actions/k8s-helm-deploy
+        uses: ./.github/actions/k8s-restart
         with:
           cluster_name: ${{ env.CLUSTER_NAME }}
           namespace: ${{ env.NAMESPACE }}
-          chart_path: "./k8s/helm/cmf"
-          release_name: "cmf"
-          values_file: "./k8s/helm/cmf/values-prd.yaml"
+          deployment: ${{ env.DEPLOYMENT_NAME }}
 
   deploy-client:
     needs: build-and-push

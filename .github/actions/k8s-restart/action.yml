@@ -1,0 +1,45 @@
+name: "K8s Connect & Restart"
+description: "Connects to a DigitalOcean Kubernetes cluster and restarts a deployment"
+
+inputs:
+  cluster_name:
+    description: "DigitalOcean Kubernetes cluster name"
+    required: true
+  namespace:
+    description: "Kubernetes namespace"
+    required: true
+  deployment:
+    description: "Kubernetes deployment name"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: ⬇️ Install kubectl
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y kubectl
+      shell: bash
+
+    - name: Connect to Kubernetes Cluster
+      run: |
+        doctl kubernetes cluster kubeconfig save "${{ inputs.cluster_name }}"
+      shell: bash
+
+    - name: Restart Deployment
+      run: |
+        echo "🔄 Restarting deployment '${{ inputs.deployment }}' in namespace '${{ inputs.namespace }}'"
+        kubectl rollout restart deployment "${{ inputs.deployment }}" -n "${{ inputs.namespace }}"
+      shell: bash
+
+    - name: 🧹 Trigger Garbage Collection
+      shell: bash
+      run: |
+        echo "🧹 Triggering garbage collection..."
+        doctl registry garbage-collection start --force
+
+    - name: 📊 Check Status
+      shell: bash
+      run: |
+        echo "📊 Check Status garbage collection..."
+        doctl registry garbage-collection get-active
