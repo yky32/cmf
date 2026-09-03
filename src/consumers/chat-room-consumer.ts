@@ -1,6 +1,6 @@
 import {BaseConsumer} from "./base-consumer";
 import {WebSocketService} from "../service/websocket-service";
-import {KafkaTopics} from "../enu/kafka-topics";
+import {KafkaTopics, instanceConsumerGroup} from "../enu/kafka-topics";
 import {ChatRoomCreatedEvent} from "../enu/events";
 
 /**
@@ -22,7 +22,7 @@ export class ChatRoomConsumer implements BaseConsumer {
     }
 
     getGroupId(): string {
-        return `${this.getTopic()}-group`;
+        return instanceConsumerGroup(this.getTopic());
     }
 
     async handleMessage(message: any): Promise<void> {
