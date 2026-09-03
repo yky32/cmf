@@ -23,6 +23,8 @@ export class WebSocketService {
   private wss: WebSocketServer;
   private readonly httpServer: any;
   private clients: Map<string, WebSocket> = new Map();
+  /** PROFILE_ALIAS bound at join-chat-room — used to skip REST sender echo */
+  private clientAlias: Map<string, string> = new Map();
   private config: WebSocketServiceConfig;
   private readonly kafkaService: KafkaService;
   private readonly chatRoomManager: ChatRoomManager;
@@ -119,8 +121,8 @@ export class WebSocketService {
       ws.on("close", () => {
         // Remove client from all chat rooms
         this.chatRoomManager.leaveAllChatRooms(clientId);
-        
         this.clients.delete(clientId);
+        this.clientAlias.delete(clientId);
         console.log(`❌ ${clientId} disconnected`);
         
         // Notify all remaining clients about the disconnection
@@ -132,6 +134,7 @@ export class WebSocketService {
         console.error(`❌ WebSocket error for ${clientId}:`, error);
         this.chatRoomManager.leaveAllChatRooms(clientId);
         this.clients.delete(clientId);
+        this.clientAlias.delete(clientId);
         this.broadcastClientDisconnected(clientId);
         this.broadcastClientList();
       });
@@ -157,7 +160,7 @@ export class WebSocketService {
         break;
 
       case ClientMessageType.JOIN_CHAT_ROOM:
-        this.handleJoinRoom(clientId, message.chatRoomId);
+        this.handleJoinRoom(clientId, message.chatRoomId, message.alias);
         break;
 
       case ClientMessageType.LEAVE_CHAT_ROOM:
@@ -322,7 +325,14 @@ export class WebSocketService {
   /**
    * Handle join chat room request from client
    */
-  private handleJoinRoom(clientId: string, chatRoomId: string | undefined): void {
+  private static canonAlias(alias: string | undefined): string {
+    if (!alias) {
+      return "";
+    }
+    return alias.trim().replace(/^@/, "").toLowerCase();
+  }
+
+  private handleJoinRoom(clientId: string, chatRoomId: string | undefined, alias?: string): void {
     if (!chatRoomId) {
       const client = this.clients.get(clientId);
       if (client) {
@@ -335,6 +345,10 @@ export class WebSocketService {
     }
 
     const wasAlreadyInRoom = this.chatRoomManager.isClientInRoom(clientId, chatRoomId);
+    const bound = WebSocketService.canonAlias(alias);
+    if (bound) {
+      this.clientAlias.set(clientId, bound);
+    }
     const success = this.chatRoomManager.joinChatRoom(clientId, chatRoomId);
     const client = this.clients.get(clientId);
     
@@ -533,9 +547,10 @@ export class WebSocketService {
    * @param message - The message to broadcast
    * @param excludeClientId - Optional client ID to exclude from the broadcast
    */
-  broadcastToChatRoom(chatRoomId: string, message: any, excludeClientId?: string): void {
+  broadcastToChatRoom(chatRoomId: string, message: any, excludeClientId?: string, excludeAliasRaw?: string): void {
     const participants = this.chatRoomManager.getChatRoomParticipants(chatRoomId);
     let sentCount = 0;
+    const excludeAlias = WebSocketService.canonAlias(excludeAliasRaw);
 
     console.log(`📡 [WebSocketService] Broadcasting to chat room ${chatRoomId}`);
     console.log(`   Total participants in room: ${participants.size}`);
@@ -543,10 +558,15 @@ export class WebSocketService {
     if (excludeClientId) {
       console.log(`   Excluding client: ${excludeClientId}`);
     }
+    if (excludeAlias) {
+      console.log(`   Excluding alias: ${excludeAlias}`);
+    }
 
     for (const clientId of participants) {
-      // Skip excluded client
       if (excludeClientId && clientId === excludeClientId) {
+        continue;
+      }
+      if (excludeAlias && this.clientAlias.get(clientId) === excludeAlias) {
         continue;
       }
 
@@ -574,15 +594,14 @@ export class WebSocketService {
    * @param message - The message to broadcast
    * @param excludeClientId - Optional client ID to exclude from receiving the message (e.g., the sender)
    */
-  broadcastChatMessage(message: any, excludeClientId?: string): void {
+  broadcastChatMessage(message: any, excludeClientId?: string, excludeAlias?: string): void {
     const chatRoomId = message.chatRoomId;
     
     if (chatRoomId) {
-      // Broadcast to specific chat room, excluding the sender if provided
       this.broadcastToChatRoom(chatRoomId, {
         type: ServerMessageType.CHAT_ROOM_MESSAGE_RECEIVED,
         ...message
-      }, excludeClientId);
+      }, excludeClientId, excludeAlias);
     } else {
       // Fallback: broadcast to all (backward compatibility)
       // If excludeClientId is provided, skip that client
