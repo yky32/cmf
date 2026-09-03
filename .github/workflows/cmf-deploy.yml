@@ -1,4 +1,4 @@
-name: Build CMF, Push Docker Image to DOCR, Deploy to K8s
+name: Build CMF, Push Docker Image to DOCR, Pin tgt-deployment
 
 on:
   push:
@@ -8,6 +8,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: deploy-${{ github.repository }}
+  cancel-in-progress: true
+
 permissions:
   actions: read
   contents: read
@@ -15,11 +19,7 @@ permissions:
 env:
   NODE_VERSION: "20"
   DOCTL_VERSION: "1.127.0"
-  CLUSTER_NAME: "k8s-tgt"
-  NAMESPACE: "tgt"
-  DEPLOYMENT_NAME: "cmf-app"
   IMAGE_REPO: "registry.digitalocean.com/qs-ecr/cmf"
-  IMAGE_TAG: "latest"
 
 jobs:
   test:
@@ -52,9 +52,14 @@ jobs:
     if: github.ref == 'refs/heads/main'
     outputs:
       result: ${{ steps.set-output.outputs.result }}
+      image_tag: ${{ steps.image_tag.outputs.value }}
     steps:
       - name: ☑️ Checkout code
         uses: actions/checkout@v4
+
+      - name: 🏷️ Compute image tag
+        id: image_tag
+        run: echo "value=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: 🔐 Authenticate with DigitalOcean
         uses: ./.github/actions/doctl-auth
@@ -66,15 +71,21 @@ jobs:
         uses: ./.github/actions/docker-push
         with:
           repo: ${{ env.IMAGE_REPO }}
-          image_tag: ${{ env.IMAGE_TAG }}
+          image_tag: ${{ steps.image_tag.outputs.value }}
 
-      - name: 🥤 Restart K8s Deployment
-        id: set-output
-        uses: ./.github/actions/k8s-restart
+      - name: 📌 Pin image tag in tgt-deployment
+        uses: ./.github/actions/bump-deployment-tag
         with:
-          cluster_name: ${{ env.CLUSTER_NAME }}
-          namespace: ${{ env.NAMESPACE }}
-          deployment: ${{ env.DEPLOYMENT_NAME }}
+          deployment_deploy_key: ${{ secrets.TGT_DEPLOYMENT_DEPLOY_KEY }}
+          deployment_repo_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          values_file: apps/tgt/cmf-helm/values-prod.yaml
+          image_tag: ${{ steps.image_tag.outputs.value }}
+          service_name: cmf
+
+      - name: ✅ Mark deploy complete
+        id: set-output
+        if: success()
+        run: echo "result=success" >> "$GITHUB_OUTPUT"
 
   notify:
     needs: build-and-push
