@@ -54,8 +54,7 @@ export class ChatMessageConsumer implements BaseConsumer {
             console.log(`   SentTimestamp: ${timestamp}`);
             console.log(`   ReadAt: ${chatMessage.readAt || 'N/A'}`);
 
-            // Fan-out to every local socket that joined this room (list + detail, all devices).
-            // Do not exclude sender: REST POST has no CMF clientId; alias !== socket UUID.
+            // Fan-out to local sockets that joined this room. Skip sender (REST from=alias).
             this.webSocketService.broadcastChatMessage({
                 chatRoomId: chatRoomId,
                 messageId: chatMessage.messageId,
@@ -66,7 +65,7 @@ export class ChatMessageConsumer implements BaseConsumer {
                 sentTimestamp: timestamp,
                 readAt: chatMessage.readAt,
                 timestamp: timestamp
-            });
+            }, undefined, chatMessage.from);
 
             console.log(`✅ [ChatMessageConsumer] Broadcasted to local sockets in chat room ${chatRoomId}`);
         } catch (error) {
