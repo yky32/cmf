@@ -32,15 +32,3 @@ runs:
         kubectl rollout restart deployment "${{ inputs.deployment }}" -n "${{ inputs.namespace }}"
       shell: bash
 
-    - name: 🧹 Trigger Garbage Collection
-      shell: bash
-      run: |
-        echo "🧹 Triggering garbage collection..."
-        doctl registry garbage-collection start --force
-
-    - name: 📊 Check Status
-      shell: bash
-      run: |
-        echo "📊 Check Status garbage collection..."
-        doctl registry garbage-collection get-active
-
