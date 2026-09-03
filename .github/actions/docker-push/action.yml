@@ -1,18 +1,69 @@
 name: 'Build and Push Docker Image to DOCR'
-description: 'Builds and pushes Docker image'
+description: 'Builds and pushes Docker image with retry logic'
 inputs:
   repo:
     required: true
   image_tag:
     required: true
+  do_token:
+    required: true
+    description: 'DigitalOcean API token for DOCR login'
+  max_retries:
+    required: false
+    default: '3'
+    description: 'Maximum number of retry attempts'
+  retry_delay:
+    required: false
+    default: '10'
+    description: 'Delay between retries in seconds'
 runs:
   using: "composite"
   steps:
-    - uses: docker/setup-buildx-action@v3
-    - name: Build and Push Docker Image
+    - uses: docker/setup-buildx-action@v4
+
+    - name: Login to DigitalOcean Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: registry.digitalocean.com
+        username: ${{ inputs.do_token }}
+        password: ${{ inputs.do_token }}
+
+    - name: Build and Push Docker Image with Retry
       shell: bash
       run: |
         IMAGE=${{ inputs.repo }}:${{ inputs.image_tag }}
-        echo "=====> Building image: $IMAGE"
-        docker build -t $IMAGE .
-        docker push $IMAGE
+        MAX_RETRIES=${{ inputs.max_retries }}
+        RETRY_DELAY=${{ inputs.retry_delay }}
+
+        ATTEMPT=1
+        while [ "$ATTEMPT" -le "$MAX_RETRIES" ]; do
+          echo "=====> Attempt $ATTEMPT of $MAX_RETRIES: buildx build --push $IMAGE"
+
+          set +e
+          docker buildx build \
+            --platform linux/amd64 \
+            --provenance=false \
+            --sbom=false \
+            --push \
+            -t "$IMAGE" \
+            .
+          PUSH_EXIT=$?
+          set -e
+
+          if [ "$PUSH_EXIT" -eq 0 ]; then
+            echo "✅ Successfully pushed image: $IMAGE"
+            exit 0
+          fi
+
+          echo "❌ Push failed with exit code: $PUSH_EXIT"
+
+          if [ "$ATTEMPT" -lt "$MAX_RETRIES" ]; then
+            echo "⏳ Waiting ${RETRY_DELAY} seconds before retry..."
+            sleep "$RETRY_DELAY"
+          fi
+
+          ATTEMPT=$((ATTEMPT + 1))
+        done
+
+        echo "🚨 Failed to push image after $MAX_RETRIES attempts"
+        exit 1
