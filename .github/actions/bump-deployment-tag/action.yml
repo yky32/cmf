@@ -1,0 +1,146 @@
+name: 'Bump image tag in tgt-deployment'
+description: 'Pins git SHA image tag in tgt-deployment via repository_dispatch or deploy-key git push'
+
+inputs:
+  deployment_repo_token:
+    required: false
+    default: ''
+    description: 'Optional PAT for repository_dispatch (Contents + Actions on tgt-deployment)'
+  deployment_deploy_key:
+    required: false
+    default: ''
+    description: 'Optional SSH private key with write access to tgt-deployment (preferred for git push)'
+  values_file:
+    required: true
+    description: 'Path under tgt-deployment, e.g. apps/tgt/program-management-service-helm/values-prod.yaml'
+  image_tag:
+    required: true
+  service_name:
+    required: true
+    description: 'Service name used in the commit message'
+  deployment_repo:
+    required: false
+    default: 'quinsicstudio/tgt-deployment'
+    description: 'GitHub repo slug for tgt-deployment'
+
+runs:
+  using: composite
+  steps:
+    - name: 📌 Pin image tag in deployment repo
+      shell: bash
+      env:
+        TOKEN: ${{ inputs.deployment_repo_token }}
+        DEPLOY_KEY: ${{ inputs.deployment_deploy_key }}
+        DEPLOYMENT_REPO: ${{ inputs.deployment_repo }}
+        VALUES_FILE: ${{ inputs.values_file }}
+        IMAGE_TAG: ${{ inputs.image_tag }}
+        SERVICE_NAME: ${{ inputs.service_name }}
+      run: |
+        set -euo pipefail
+        if [ -z "$TOKEN" ] && [ -z "$DEPLOY_KEY" ]; then
+          echo "::error::Set TGT_DEPLOYMENT_DEPLOY_KEY (preferred) or PERSONAL_ACCESS_TOKEN org secret."
+          exit 1
+        fi
+        if ! echo "${IMAGE_TAG}" | grep -Eq '^[0-9a-f]{7,40}$' || [ "${IMAGE_TAG}" = "0000000" ]; then
+          echo "::error::Invalid image_tag '${IMAGE_TAG}'"
+          exit 1
+        fi
+
+        try_repository_dispatch() {
+          [ -n "$TOKEN" ] || return 1
+          local payload http_code repo
+          payload=$(jq -nc \
+            --arg event_type "bump-image-tag" \
+            --arg values_file "$VALUES_FILE" \
+            --arg image_tag "$IMAGE_TAG" \
+            --arg service_name "$SERVICE_NAME" \
+            '{event_type: $event_type, client_payload: {values_file: $values_file, image_tag: $image_tag, service_name: $service_name}}')
+          for repo in "$DEPLOYMENT_REPO" quinsicstudio/tgt-deployment quinsicstudio/deployment; do
+            echo "Trying repository_dispatch on ${repo}..."
+            http_code=$(curl -sS -o /tmp/dispatch-response.json -w '%{http_code}' \
+              -X POST "https://api.github.com/repos/${repo}/dispatches" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Content-Type: application/json" \
+              -d "$payload" || echo "000")
+            if [ "$http_code" = "204" ]; then
+              echo "Triggered bump-image-tag on ${repo} for ${SERVICE_NAME} → ${IMAGE_TAG}"
+              return 0
+            fi
+            echo "HTTP ${http_code} for ${repo}:"
+            cat /tmp/dispatch-response.json || true
+            echo ""
+          done
+          return 1
+        }
+
+        git_push_tag() {
+          local workdir="$1"
+          cd "$workdir"
+          if [ ! -f "$VALUES_FILE" ]; then
+            echo "::error::Values file not found: $VALUES_FILE"
+            exit 1
+          fi
+          sed -i.bak "s/^  tag: .*/  tag: \"${IMAGE_TAG}\"/" "$VALUES_FILE"
+          rm -f "${VALUES_FILE}.bak"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$VALUES_FILE"
+          if git diff --staged --quiet; then
+            echo "Tag already ${IMAGE_TAG} in tgt-deployment, nothing to push"
+            return 0
+          fi
+          git commit -m "deploy(${SERVICE_NAME}): pin image ${IMAGE_TAG}"
+          for attempt in 1 2 3; do
+            if git push origin main; then
+              echo "Pushed pinned tag ${IMAGE_TAG} for ${SERVICE_NAME} to ${DEPLOYMENT_REPO}"
+              return 0
+            fi
+            echo "Push failed, rebasing (attempt ${attempt})..."
+            git pull --rebase origin main
+          done
+          return 1
+        }
+
+        push_via_deploy_key() {
+          [ -n "$DEPLOY_KEY" ] || return 1
+          local workdir keyfile
+          workdir=$(mktemp -d)
+          keyfile=$(mktemp)
+          printf '%s\n' "$DEPLOY_KEY" > "$keyfile"
+          chmod 600 "$keyfile"
+          export GIT_SSH_COMMAND="ssh -i ${keyfile} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${keyfile}.known_hosts"
+          if ! git clone --depth 1 "git@github.com:${DEPLOYMENT_REPO}.git" "$workdir"; then
+            echo "::warning::Deploy key clone failed"
+            return 1
+          fi
+          git_push_tag "$workdir"
+        }
+
+        push_via_pat() {
+          [ -n "$TOKEN" ] || return 1
+          local workdir
+          workdir=$(mktemp -d)
+          if ! git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/${DEPLOYMENT_REPO}.git" "$workdir"; then
+            echo "::warning::PAT clone failed"
+            return 1
+          fi
+          git_push_tag "$workdir"
+        }
+
+        if try_repository_dispatch; then
+          exit 0
+        fi
+
+        echo "repository_dispatch unavailable — pushing via deploy key..."
+        if push_via_deploy_key; then
+          exit 0
+        fi
+
+        echo "deploy key push failed — trying PAT git push..."
+        if push_via_pat; then
+          exit 0
+        fi
+
+        echo "::error::Could not pin image tag in tgt-deployment. Check TGT_DEPLOYMENT_DEPLOY_KEY org secret or PERSONAL_ACCESS_TOKEN."
+        exit 1
