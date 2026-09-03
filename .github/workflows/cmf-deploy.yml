@@ -72,6 +72,7 @@ jobs:
         with:
           repo: ${{ env.IMAGE_REPO }}
           image_tag: ${{ steps.image_tag.outputs.value }}
+          do_token: ${{ secrets.DIGITAL_OCEAN_DEPLOY_TOKEN }}
 
       - name: 📌 Pin image tag in tgt-deployment
         uses: ./.github/actions/bump-deployment-tag
