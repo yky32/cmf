@@ -23,6 +23,8 @@ export class WebSocketService {
   private wss: WebSocketServer;
   private readonly httpServer: any;
   private clients: Map<string, WebSocket> = new Map();
+  /** Optional profile alias from join-chat-room, for SEND_IN vs SEND_OUT on chat events */
+  private clientAlias: Map<string, string> = new Map();
   private config: WebSocketServiceConfig;
   private readonly kafkaService: KafkaService;
   private readonly chatRoomManager: ChatRoomManager;
@@ -121,6 +123,7 @@ export class WebSocketService {
         this.chatRoomManager.leaveAllChatRooms(clientId);
         
         this.clients.delete(clientId);
+        this.clientAlias.delete(clientId);
         console.log(`❌ ${clientId} disconnected`);
         
         // Notify all remaining clients about the disconnection
@@ -132,6 +135,7 @@ export class WebSocketService {
         console.error(`❌ WebSocket error for ${clientId}:`, error);
         this.chatRoomManager.leaveAllChatRooms(clientId);
         this.clients.delete(clientId);
+        this.clientAlias.delete(clientId);
         this.broadcastClientDisconnected(clientId);
         this.broadcastClientList();
       });
@@ -157,7 +161,7 @@ export class WebSocketService {
         break;
 
       case ClientMessageType.JOIN_CHAT_ROOM:
-        this.handleJoinRoom(clientId, message.chatRoomId);
+        this.handleJoinRoom(clientId, message.chatRoomId, message.alias || message.from);
         break;
 
       case ClientMessageType.LEAVE_CHAT_ROOM:
@@ -307,14 +311,12 @@ export class WebSocketService {
     this.clients.clear();
   }
 
-  private sendToClient(client: WebSocket, message: any): void {
+  private sendToClient(client: WebSocket, message: any, direction: "SEND_IN" | "SEND_OUT" = "SEND_IN"): void {
     if (client.readyState === WebSocket.OPEN) {
-      // Add direction field to all server messages
-      const messageWithDirection = {
+      client.send(JSON.stringify({
         ...message,
-        direction: "SEND_IN"
-      };
-      client.send(JSON.stringify(messageWithDirection));
+        direction,
+      }));
     }
   }
 
@@ -327,7 +329,7 @@ export class WebSocketService {
   /**
    * Handle join chat room request from client
    */
-  private handleJoinRoom(clientId: string, chatRoomId: string | undefined): void {
+  private handleJoinRoom(clientId: string, chatRoomId: string | undefined, alias?: string): void {
     if (!chatRoomId) {
       const client = this.clients.get(clientId);
       if (client) {
@@ -344,6 +346,9 @@ export class WebSocketService {
     const client = this.clients.get(clientId);
     
     if (client && success) {
+      if (typeof alias === "string" && alias.trim()) {
+        this.clientAlias.set(clientId, alias.trim().replace(/^@/, "").toLowerCase());
+      }
       // Get all participants after join
       const participants = Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId));
       
@@ -533,6 +538,32 @@ export class WebSocketService {
   }
 
   /**
+   * Chat + typing: sender echo SEND_IN, everyone else in the room SEND_OUT.
+   */
+  deliverDirectedToRoom(
+    chatRoomId: string,
+    message: any,
+    opts?: { originClientId?: string; senderAlias?: string }
+  ): void {
+    const originClientId = opts?.originClientId;
+    const senderAlias = opts?.senderAlias
+      ? opts.senderAlias.trim().replace(/^@/, "").toLowerCase()
+      : undefined;
+    const participants = this.chatRoomManager.getChatRoomParticipants(chatRoomId);
+    for (const clientId of participants) {
+      const client = this.clients.get(clientId);
+      if (!client) {
+        continue;
+      }
+      const alias = this.clientAlias.get(clientId);
+      const isSender =
+        (originClientId != null && clientId === originClientId) ||
+        (senderAlias != null && alias === senderAlias);
+      this.sendToClient(client, message, isSender ? "SEND_IN" : "SEND_OUT");
+    }
+  }
+
+  /**
    * Broadcast chat room message to a specific chat room (not all clients)
    * @param chatRoomId - The chat room ID to broadcast to
    * @param message - The message to broadcast
@@ -583,11 +614,10 @@ export class WebSocketService {
     const chatRoomId = message.chatRoomId;
     
     if (chatRoomId) {
-      // Broadcast to specific chat room, excluding the sender if provided
-      this.broadcastToChatRoom(chatRoomId, {
+      this.deliverDirectedToRoom(chatRoomId, {
         type: ServerMessageType.CHAT_ROOM_MESSAGE_RECEIVED,
         ...message
-      }, excludeClientId);
+      }, { senderAlias: message.from, originClientId: excludeClientId });
     } else {
       // Fallback: broadcast to all (backward compatibility)
       // If excludeClientId is provided, skip that client

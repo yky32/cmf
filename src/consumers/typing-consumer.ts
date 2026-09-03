@@ -27,7 +27,7 @@ export class TypingConsumer implements BaseConsumer {
             return;
         }
         const isTyping = Boolean(message.isTyping);
-        this.webSocketService.broadcastToChatRoom(
+        this.webSocketService.deliverDirectedToRoom(
             chatRoomId,
             {
                 type: isTyping
@@ -37,7 +37,7 @@ export class TypingConsumer implements BaseConsumer {
                 participantId: message.participantId,
                 isTyping,
             },
-            message.originClientId
+            { originClientId: message.originClientId }
         );
     }
 }
