@@ -1,8 +1,5 @@
 import { Kafka, Producer } from "kafkajs";
 
-/**
- * KafkaMessage interface for producer
- */
 export interface KafkaMessage {
   from: string;
   message: string;
@@ -15,12 +12,6 @@ export interface KafkaServiceConfig {
   clientId?: string;
 }
 
-/**
- * Kafka Service (Producer Only)
- * 
- * Simplified service that only handles producing messages to Kafka.
- * Consumer management is handled by KafkaConsumerManager.
- */
 export class KafkaService {
   private kafka: Kafka;
   private producer: Producer;
@@ -32,9 +23,8 @@ export class KafkaService {
       ...config
     };
 
-    // Parse broker string - support comma-separated list of brokers
     const brokers = this.config.broker
-      .split(',')
+      .split(",")
       .map(b => b.trim())
       .filter(b => b.length > 0);
 
@@ -56,14 +46,26 @@ export class KafkaService {
     }
   }
 
+  async sendJson(topic: string, payload: Record<string, unknown>): Promise<void> {
+    try {
+      await this.producer.send({
+        topic,
+        messages: [{ value: JSON.stringify(payload) }],
+      });
+    } catch (error) {
+      console.error(`❌ [KafkaService] Error sending JSON to ${topic}:`, error);
+      throw error;
+    }
+  }
+
   async sendMessage(message: KafkaMessage, topic?: string): Promise<void> {
     try {
       const targetTopic = topic || this.config.topic;
       await this.producer.send({
         topic: targetTopic,
-        messages: [{ 
+        messages: [{
           value: JSON.stringify(message),
-          key: message.from 
+          key: message.from
         }],
       });
       console.log(`📤 [KafkaService] Sent message to topic ${targetTopic}: ${JSON.stringify(message)}`);

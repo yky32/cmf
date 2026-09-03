@@ -455,13 +455,13 @@ export class WebSocketService {
       return;
     }
 
-    // Broadcast typing indicator to all other participants in the room
-    this.broadcastToChatRoom(chatRoomId, {
-      type: ServerMessageType.CHAT_ROOM_TYPING,
-      chatRoomId: chatRoomId,
+    // Fan-out via Kafka so every CMF pod can deliver to local sockets in this room.
+    this.kafkaService.sendJson(KafkaTopics.WS_TYPING, {
+      chatRoomId,
+      originClientId: clientId,
       participantId: clientId,
-      isTyping: true
-    }, clientId); // Exclude the sender
+      isTyping: true,
+    }).catch((err) => console.error("❌ typing-start kafka:", err));
   }
 
   /**
@@ -477,13 +477,12 @@ export class WebSocketService {
       return; // Silently ignore if not in room
     }
 
-    // Broadcast typing stop to all other participants in the room
-    this.broadcastToChatRoom(chatRoomId, {
-      type: ServerMessageType.CHAT_ROOM_TYPING_STOPPED,
-      chatRoomId: chatRoomId,
+    this.kafkaService.sendJson(KafkaTopics.WS_TYPING, {
+      chatRoomId,
+      originClientId: clientId,
       participantId: clientId,
-      isTyping: false
-    }, clientId); // Exclude the sender
+      isTyping: false,
+    }).catch((err) => console.error("❌ typing-stop kafka:", err));
   }
 
   /**

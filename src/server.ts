@@ -3,6 +3,7 @@ import {BaseKafkaManager} from "./manager/base-kafka-manager";
 import {WebSocketService} from "./service/websocket-service";
 import {ChatRoomConsumer} from "./consumers/chat-room-consumer";
 import {ChatMessageConsumer} from "./consumers/chat-message-consumer";
+import {TypingConsumer} from "./consumers/typing-consumer";
 import {KafkaTopics} from "./enu/kafka-topics";
 
 const PORT = process.env.PORT || 8088;
@@ -43,6 +44,10 @@ async function startServer() {
 
         await consumerManager.registerConsumer(
             new ChatMessageConsumer(webSocketService)
+        );
+
+        await consumerManager.registerConsumer(
+            new TypingConsumer(webSocketService)
         );
 
         // Add more consumers here as needed:

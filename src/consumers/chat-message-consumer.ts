@@ -1,6 +1,6 @@
 import {BaseConsumer} from "./base-consumer";
 import {WebSocketService} from "../service/websocket-service";
-import {KafkaTopics} from "../enu/kafka-topics";
+import {KafkaTopics, instanceConsumerGroup} from "../enu/kafka-topics";
 import {ChatMessageEvent} from "../enu/events";
 
 /**
@@ -21,7 +21,7 @@ export class ChatMessageConsumer implements BaseConsumer {
     }
 
     getGroupId(): string {
-        return `${this.getTopic()}-group`;
+        return instanceConsumerGroup(this.getTopic());
     }
 
     async handleMessage(message: any): Promise<void> {
@@ -54,24 +54,21 @@ export class ChatMessageConsumer implements BaseConsumer {
             console.log(`   SentTimestamp: ${timestamp}`);
             console.log(`   ReadAt: ${chatMessage.readAt || 'N/A'}`);
 
-            // Extract sender's client ID to exclude from receiving their own message
-            // The sender already sees their message as SEND_OUT, so we don't need to send it back via websocket
-            const senderClientId = chatMessage.from;
-
-            // Broadcast to participants in the specific chat room only, excluding the sender
+            // Fan-out to every local socket that joined this room (list + detail, all devices).
+            // Do not exclude sender: REST POST has no CMF clientId; alias !== socket UUID.
             this.webSocketService.broadcastChatMessage({
                 chatRoomId: chatRoomId,
                 messageId: chatMessage.messageId,
                 from: chatMessage.from,
                 to: chatMessage.to,
                 message: messageContent,
-                content: messageContent,  // Include both for compatibility
+                content: messageContent,
                 sentTimestamp: timestamp,
                 readAt: chatMessage.readAt,
-                timestamp: timestamp  // Include for backward compatibility
-            }, senderClientId); // Exclude sender from receiving their own message
+                timestamp: timestamp
+            });
 
-            console.log(`✅ [ChatMessageConsumer] Successfully broadcasted message to chat room ${chatRoomId} participants (excluded sender: ${senderClientId})`);
+            console.log(`✅ [ChatMessageConsumer] Broadcasted to local sockets in chat room ${chatRoomId}`);
         } catch (error) {
             console.error(`❌ [ChatMessageConsumer] Error processing message:`, error);
             console.error(`   Message that caused error:`, JSON.stringify(message, null, 2));
