@@ -80,15 +80,3 @@ runs:
         kubectl get svc -n "${{ inputs.namespace }}" -l app.kubernetes.io/name="${{ inputs.release_name }}"
         kubectl get ingress -n "${{ inputs.namespace }}" -l app.kubernetes.io/name="${{ inputs.release_name }}"
       shell: bash
-
-    - name: 🧹 Trigger Garbage Collection
-      shell: bash
-      run: |
-        echo "🧹 Triggering garbage collection..."
-        doctl registry garbage-collection start --force
-
-    - name: 📊 Check Garbage Collection Status
-      shell: bash
-      run: |
-        echo "📊 Checking garbage collection status..."
-        doctl registry garbage-collection get-active
