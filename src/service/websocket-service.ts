@@ -309,12 +309,7 @@ export class WebSocketService {
 
   private sendToClient(client: WebSocket, message: any): void {
     if (client.readyState === WebSocket.OPEN) {
-      // Add direction field to all server messages
-      const messageWithDirection = {
-        ...message,
-        direction: "SEND_IN"
-      };
-      client.send(JSON.stringify(messageWithDirection));
+      client.send(JSON.stringify(message));
     }
   }
 
