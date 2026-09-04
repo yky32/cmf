@@ -58,6 +58,7 @@ export class ChatMessageConsumer implements BaseConsumer {
             this.webSocketService.broadcastChatMessage({
                 chatRoomId: chatRoomId,
                 messageId: chatMessage.messageId,
+                nonce: chatMessage.nonce,
                 from: chatMessage.from,
                 to: chatMessage.to,
                 message: messageContent,

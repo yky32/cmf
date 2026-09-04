@@ -69,6 +69,8 @@ export interface ChatMessageEvent {
     chatRoomId: string;
     /** Unique message ID */
     messageId?: string;
+    /** Client nonce; echoed from messenger POST */
+    nonce?: string;
     /** User ID who sent the message */
     from: string;
     /** User ID who receives the message (optional, for direct messages) */
