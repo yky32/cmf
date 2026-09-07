@@ -705,6 +705,7 @@ export class WebSocketService {
     sentTimestamp?: number;
     participantAliases?: string[];
   }): void {
+    const sender = WebSocketService.canonAlias(payload.from);
     const aliases = payload.participantAliases || [];
     if (aliases.length === 0) {
       return;
@@ -713,6 +714,9 @@ export class WebSocketService {
     for (const raw of aliases) {
       const alias = WebSocketService.canonAlias(raw);
       if (!alias) {
+        continue;
+      }
+      if (sender && alias === sender) {
         continue;
       }
       const clientIds = this.inboxClientsByAlias.get(alias);
