@@ -65,8 +65,20 @@ export class ChatMessageConsumer implements BaseConsumer {
                 content: messageContent,
                 sentTimestamp: timestamp,
                 readAt: chatMessage.readAt,
-                timestamp: timestamp
+                timestamp: timestamp,
+                attachments: chatMessage.attachments,
             }, undefined, chatMessage.from);
+
+            this.webSocketService.deliverInboxMessage({
+                chatRoomId: chatRoomId,
+                messageId: chatMessage.messageId,
+                nonce: chatMessage.nonce,
+                from: chatMessage.from,
+                content: chatMessage.content ?? "",
+                attachments: chatMessage.attachments,
+                sentTimestamp: timestamp,
+                participantAliases: chatMessage.participantAliases,
+            });
 
             console.log(`✅ [ChatMessageConsumer] Broadcasted to local sockets in chat room ${chatRoomId}`);
         } catch (error) {
