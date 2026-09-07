@@ -64,6 +64,8 @@ async function startServer() {
         // Graceful shutdown
         process.on("SIGTERM", async () => {
             console.log("🛑 Received SIGTERM, shutting down gracefully...");
+            webSocketService.beginDrain();
+            await new Promise((r) => setTimeout(r, 15_000));
             webSocketService.close();
             await consumerManager.disconnectAll();
             await kafkaService.disconnect();

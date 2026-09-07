@@ -1,11 +1,12 @@
 import { WebSocketServer, WebSocket } from "ws";
-import { createServer } from "http";
+import { createServer, IncomingMessage } from "http";
 import { randomUUID } from "crypto";
 import { KafkaService, KafkaMessage } from "./kafka-service";
 import { ClientMessageType, ServerMessageType, MessageType } from "../enu/message-types";
 import { ChatRoomManager } from "../manager/chat-room-manager";
 import { ChatRoomInfo } from "../enu/events/chat-room-events";
 import { KafkaTopics } from "../enu/kafka-topics";
+import { aliasFromJwtPayload, decodeJwtPayload, extractAccessToken } from "./jwt-bind";
 
 export interface WebSocketMessage {
   type: MessageType;
@@ -23,8 +24,9 @@ export class WebSocketService {
   private wss: WebSocketServer;
   private readonly httpServer: any;
   private clients: Map<string, WebSocket> = new Map();
-  /** PROFILE_ALIAS bound at join-chat-room — used to skip REST sender echo */
+  /** PROFILE_ALIAS bound at WSS connect (JWT) or join-chat-room — skip REST sender echo */
   private clientAlias: Map<string, string> = new Map();
+  private draining = false;
   private config: WebSocketServiceConfig;
   private readonly kafkaService: KafkaService;
   private readonly chatRoomManager: ChatRoomManager;
@@ -36,14 +38,17 @@ export class WebSocketService {
     
     // Create HTTP server for health checks and stats
     this.httpServer = createServer((req, res) => {
-      if (req.url === '/health') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+      if (req.url === '/health' || req.url === '/ready') {
+        const ready = !this.draining;
+        const code = req.url === '/ready' && !ready ? 503 : 200;
+        res.writeHead(code, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
-          status: 'healthy', 
+          status: code === 200 ? 'healthy' : 'draining', 
           timestamp: new Date().toISOString(),
           clients: this.clients.size,
           chatRooms: this.chatRoomManager.getChatRoomCount(),
-          kafka: this.kafkaService ? 'connected' : 'disconnected'
+          kafka: this.kafkaService ? 'connected' : 'disconnected',
+          draining: this.draining
         }));
       } else if (req.url === '/stats') {
         // Get detailed chat room statistics (optimized)
@@ -87,15 +92,14 @@ export class WebSocketService {
   }
 
   private setupWebSocketHandlers(): void {
-    this.wss.on("connection", (ws: WebSocket, req?: any) => {
-      // Generate UUID-based client ID for distributed deployments
-      // TODO: Replace with profileId from Spring Boot authentication
-      // When Spring Boot passes profileId via WebSocket upgrade request or initial message,
-      // extract it from: req.headers, query params, or first message after connection
-      // Example: const profileId = req.headers['x-profile-id'] || extractFromQuery(req.url) || awaitFirstMessage();
-      // For now, use UUID to avoid conflicts in multi-pod K8s deployments
+    this.wss.on("connection", (ws: WebSocket, req?: IncomingMessage) => {
       const clientId = randomUUID();
       this.clients.set(clientId, ws);
+      const jwtAlias = aliasFromJwtPayload(decodeJwtPayload(extractAccessToken(req)));
+      if (jwtAlias) {
+        this.clientAlias.set(clientId, jwtAlias);
+        console.log(`🔐 ${clientId} bound JWT alias=${jwtAlias}`);
+      }
 
       console.log(`✅ ${clientId} connected`);
       
@@ -345,7 +349,7 @@ export class WebSocketService {
     }
 
     const wasAlreadyInRoom = this.chatRoomManager.isClientInRoom(clientId, chatRoomId);
-    const bound = WebSocketService.canonAlias(alias);
+    const bound = WebSocketService.canonAlias(alias) || this.clientAlias.get(clientId) || "";
     if (bound) {
       this.clientAlias.set(clientId, bound);
     }
@@ -648,6 +652,12 @@ export class WebSocketService {
 
   getClientCount(): number {
     return this.clients.size;
+  }
+
+  /** Readiness fails so kube stops sending new sockets; liveness stays up. */
+  beginDrain(): void {
+    this.draining = true;
+    console.log("🛑 CMF draining — /ready=503");
   }
 
   close(): void {
