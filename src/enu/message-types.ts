@@ -73,6 +73,8 @@ export enum ServerMessageType {
   CHAT_ROOM_TYPING = "chat-room-typing",
   /** Notification that a participant stopped typing in a chat room */
   CHAT_ROOM_TYPING_STOPPED = "chat-room-typing-stopped",
+  /** Message reaction added/removed/replaced */
+  CHAT_ROOM_REACTION = "chat-room-reaction",
   /** Inbox subscription ack */
   INBOX_SUBSCRIBED = "inbox-subscribed",
   /** Inbox unsubscribed ack */

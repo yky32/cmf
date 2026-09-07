@@ -23,6 +23,9 @@ export const KafkaTopics = {
 
   /** Typing indicators — CMF produces, every CMF pod consumes */
   WS_TYPING: process.env.WS_TYPING_TOPIC || "cmf.ws.typing",
+
+  /** Message reactions from messenger */
+  WS_CHAT_REACTIONS: process.env.WS_CHAT_REACTIONS_TOPIC || "messenger-ws.chat-reactions",
 } as const;
 
 /**
