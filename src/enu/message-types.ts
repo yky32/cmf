@@ -29,6 +29,10 @@ export enum ClientMessageType {
   TYPING_START = "typing-start",
   /** Indicate that user stopped typing in a chat room */
   TYPING_STOP = "typing-stop",
+  /** Subscribe to inbox (chat list) without joining each room */
+  SUBSCRIBE_INBOX = "subscribe-inbox",
+  /** Stop inbox events on this socket */
+  UNSUBSCRIBE_INBOX = "unsubscribe-inbox",
 }
 
 /**
@@ -69,6 +73,12 @@ export enum ServerMessageType {
   CHAT_ROOM_TYPING = "chat-room-typing",
   /** Notification that a participant stopped typing in a chat room */
   CHAT_ROOM_TYPING_STOPPED = "chat-room-typing-stopped",
+  /** Inbox subscription ack */
+  INBOX_SUBSCRIBED = "inbox-subscribed",
+  /** Inbox unsubscribed ack */
+  INBOX_UNSUBSCRIBED = "inbox-unsubscribed",
+  /** New message for chat list (no room join required) */
+  INBOX_MESSAGE = "inbox-message",
 }
 
 /**

@@ -83,4 +83,7 @@ export interface ChatMessageEvent {
     readAt?: number;
     /** @deprecated Use sentTimestamp instead. Kept for backward compatibility */
     timestamp?: number;
+    /** Room member aliases (no @) for inbox fan-out */
+    participantAliases?: string[];
+    attachments?: unknown[];
 }

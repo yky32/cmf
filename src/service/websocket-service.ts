@@ -25,6 +25,10 @@ export class WebSocketService {
   private clients: Map<string, WebSocket> = new Map();
   /** PROFILE_ALIAS bound at join-chat-room — used to skip REST sender echo */
   private clientAlias: Map<string, string> = new Map();
+  /** Inbox: clientId → alias (list screen, no room join) */
+  private inboxAliasByClient: Map<string, string> = new Map();
+  /** Inbox: alias → clientIds on this pod */
+  private inboxClientsByAlias: Map<string, Set<string>> = new Map();
   private config: WebSocketServiceConfig;
   private readonly kafkaService: KafkaService;
   private readonly chatRoomManager: ChatRoomManager;
@@ -121,6 +125,7 @@ export class WebSocketService {
       ws.on("close", () => {
         // Remove client from all chat rooms
         this.chatRoomManager.leaveAllChatRooms(clientId);
+        this.clearInboxSubscription(clientId);
         this.clients.delete(clientId);
         this.clientAlias.delete(clientId);
         console.log(`❌ ${clientId} disconnected`);
@@ -133,6 +138,7 @@ export class WebSocketService {
       ws.on("error", (error) => {
         console.error(`❌ WebSocket error for ${clientId}:`, error);
         this.chatRoomManager.leaveAllChatRooms(clientId);
+        this.clearInboxSubscription(clientId);
         this.clients.delete(clientId);
         this.clientAlias.delete(clientId);
         this.broadcastClientDisconnected(clientId);
@@ -181,6 +187,14 @@ export class WebSocketService {
 
       case ClientMessageType.TYPING_STOP:
         this.handleTypingStop(clientId, message.chatRoomId);
+        break;
+
+      case ClientMessageType.SUBSCRIBE_INBOX:
+        this.handleSubscribeInbox(clientId, message.alias);
+        break;
+
+      case ClientMessageType.UNSUBSCRIBE_INBOX:
+        this.handleUnsubscribeInbox(clientId);
         break;
 
       default:
@@ -630,6 +644,102 @@ export class WebSocketService {
    */
   getChatRoomManager(): ChatRoomManager {
     return this.chatRoomManager;
+  }
+
+  private handleSubscribeInbox(clientId: string, alias?: string): void {
+    const bound = WebSocketService.canonAlias(alias);
+    const client = this.clients.get(clientId);
+    if (!bound) {
+      if (client) {
+        this.sendToClient(client, { type: ServerMessageType.ERROR, message: "alias is required for subscribe-inbox" });
+      }
+      return;
+    }
+    this.clearInboxSubscription(clientId);
+    this.inboxAliasByClient.set(clientId, bound);
+    let set = this.inboxClientsByAlias.get(bound);
+    if (!set) {
+      set = new Set();
+      this.inboxClientsByAlias.set(bound, set);
+    }
+    set.add(clientId);
+    if (client) {
+      this.sendToClient(client, { type: ServerMessageType.INBOX_SUBSCRIBED, alias: bound });
+    }
+    console.log(`📬 [WebSocketService] inbox subscribed client=${clientId} alias=${bound}`);
+  }
+
+  private handleUnsubscribeInbox(clientId: string): void {
+    this.clearInboxSubscription(clientId);
+    const client = this.clients.get(clientId);
+    if (client) {
+      this.sendToClient(client, { type: ServerMessageType.INBOX_UNSUBSCRIBED });
+    }
+  }
+
+  private clearInboxSubscription(clientId: string): void {
+    const alias = this.inboxAliasByClient.get(clientId);
+    if (!alias) {
+      return;
+    }
+    this.inboxAliasByClient.delete(clientId);
+    const set = this.inboxClientsByAlias.get(alias);
+    if (set) {
+      set.delete(clientId);
+      if (set.size === 0) {
+        this.inboxClientsByAlias.delete(alias);
+      }
+    }
+  }
+
+  /**
+   * Fan-out to sockets that subscribed inbox as one of participantAliases (this pod only).
+   */
+  deliverInboxMessage(payload: {
+    chatRoomId: string;
+    messageId?: string;
+    nonce?: string;
+    from?: string;
+    content?: string;
+    attachments?: unknown[];
+    sentTimestamp?: number;
+    participantAliases?: string[];
+  }): void {
+    const aliases = payload.participantAliases || [];
+    if (aliases.length === 0) {
+      return;
+    }
+    const seen = new Set<string>();
+    for (const raw of aliases) {
+      const alias = WebSocketService.canonAlias(raw);
+      if (!alias) {
+        continue;
+      }
+      const clientIds = this.inboxClientsByAlias.get(alias);
+      if (!clientIds) {
+        continue;
+      }
+      for (const clientId of clientIds) {
+        if (seen.has(clientId)) {
+          continue;
+        }
+        seen.add(clientId);
+        const client = this.clients.get(clientId);
+        if (!client) {
+          continue;
+        }
+        this.sendToClient(client, {
+          type: ServerMessageType.INBOX_MESSAGE,
+          chatRoomId: payload.chatRoomId,
+          messageId: payload.messageId,
+          nonce: payload.nonce,
+          from: payload.from,
+          content: payload.content ?? "",
+          attachments: payload.attachments || [],
+          sentTimestamp: payload.sentTimestamp,
+        });
+      }
+    }
   }
 
   private broadcastClientList(): void {
