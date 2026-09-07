@@ -20,6 +20,18 @@ export interface WebSocketServiceConfig {
 }
 
 export class WebSocketService {
+  /** Product chat: join / leave / typing only. God-mode needs CMF_ALLOW_GOD_MODE=true. */
+  private static readonly PUBLIC_CLIENT_TYPES = new Set<string>([
+    ClientMessageType.JOIN_CHAT_ROOM,
+    ClientMessageType.LEAVE_CHAT_ROOM,
+    ClientMessageType.TYPING_START,
+    ClientMessageType.TYPING_STOP,
+  ]);
+
+  private static allowGodMode(): boolean {
+    return process.env.CMF_ALLOW_GOD_MODE === "true";
+  }
+
   private wss: WebSocketServer;
   private readonly httpServer: any;
   private clients: Map<string, WebSocket> = new Map();
@@ -142,6 +154,17 @@ export class WebSocketService {
   }
 
   private async handleMessage(clientId: string, message: WebSocketMessage): Promise<void> {
+    if (!WebSocketService.allowGodMode() && !WebSocketService.PUBLIC_CLIENT_TYPES.has(message.type)) {
+      const client = this.clients.get(clientId);
+      if (client) {
+        this.sendToClient(client, {
+          type: ServerMessageType.ERROR,
+          message: "command disabled",
+        });
+      }
+      return;
+    }
+
     switch (message.type) {
       case ClientMessageType.BROADCAST_ALL:
         await this.handleBroadcast(clientId, message.message || "");
