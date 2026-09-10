@@ -454,14 +454,23 @@ export class WebSocketService {
   kickAliasFromRoom(chatRoomId: string, aliasRaw?: string): void {
     const alias = WebSocketService.canonAlias(aliasRaw);
     if (!chatRoomId || !alias) {
+      console.warn(`⚠️ [WebSocketService] kickAliasFromRoom missing chatRoomId or alias`);
       return;
     }
+    this.broadcastToChatRoom(chatRoomId, {
+      type: ServerMessageType.CHAT_ROOM_KICKED,
+      chatRoomId,
+      alias,
+    });
     const participants = Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId));
+    let n = 0;
     for (const clientId of participants) {
       if (this.clientAlias.get(clientId) === alias) {
         this.handleLeaveRoom(clientId, chatRoomId);
+        n += 1;
       }
     }
+    console.log(`👢 [WebSocketService] kick alias=${alias} room=${chatRoomId} sockets=${n}`);
   }
 
   /**

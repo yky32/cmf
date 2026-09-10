@@ -61,6 +61,8 @@ export enum ServerMessageType {
   CHAT_ROOM_JOINED = "chat-room-joined",
   /** Left a chat room */
   CHAT_ROOM_LEFT = "chat-room-left",
+  /** Backend kicked this alias from the room */
+  CHAT_ROOM_KICKED = "chat-room-kicked",
   /** Online participants in a chat room */
   CHAT_ROOM_PARTICIPANTS_ONLINE = "chat-room-participants-online",
   /** Notification that a participant joined the chat room (real-time update) */
