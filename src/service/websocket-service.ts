@@ -451,6 +451,19 @@ export class WebSocketService {
       console.log(`👋 [WebSocketService] Client ${clientId} left chat room ${chatRoomId}`);
   }
 
+  kickAliasFromRoom(chatRoomId: string, aliasRaw?: string): void {
+    const alias = WebSocketService.canonAlias(aliasRaw);
+    if (!chatRoomId || !alias) {
+      return;
+    }
+    const participants = Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId));
+    for (const clientId of participants) {
+      if (this.clientAlias.get(clientId) === alias) {
+        this.handleLeaveRoom(clientId, chatRoomId);
+      }
+    }
+  }
+
   /**
    * Handle typing start indicator from client
    */

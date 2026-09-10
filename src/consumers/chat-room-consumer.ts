@@ -1,14 +1,12 @@
 import {BaseConsumer} from "./base-consumer";
 import {WebSocketService} from "../service/websocket-service";
 import {KafkaTopics, instanceConsumerGroup} from "../enu/kafka-topics";
-import {ChatRoomCreatedEvent} from "../enu/events";
+import {ChatRoomCreatedEvent, ChatRoomKickEvent} from "../enu/events";
 
 /**
  * Consumer for messenger.chat-room topic
  *
- * Handles chat room activity events from Spring Boot (room creation, updates, etc.).
- * This consumer only handles events related to chat room lifecycle and activity,
- * not chat messages (which are handled by ChatMessageConsumer).
+ * create vs WSS kick are different types. Do not treat every chatRoomId as create.
  */
 export class ChatRoomConsumer implements BaseConsumer {
     private webSocketService: WebSocketService;
@@ -27,29 +25,30 @@ export class ChatRoomConsumer implements BaseConsumer {
 
     async handleMessage(message: any): Promise<void> {
         try {
-            // Handle chat room creation event
-            if (message.chatRoomId || (message.type && message.type === "chat-room.created")) {
-                const chatRoomCreatedEvent = message as ChatRoomCreatedEvent;
-                const chatRoomId = chatRoomCreatedEvent.chatRoomId;
-                
-                if (!chatRoomId) {
-                    console.warn(`⚠️ [ChatRoomConsumer] Received chat room event without chatRoomId:`, message);
-                    return;
-                }
-                
-                console.log(`🏠 [ChatRoomConsumer] Received chat room creation event: Chat Room ${chatRoomId}`);
-                
-                // Create chat room in CMF
-                this.webSocketService.createChatRoom(chatRoomId, {
-                    type: chatRoomCreatedEvent.type,
-                    name: chatRoomCreatedEvent.name,
-                    participantIds: chatRoomCreatedEvent.participantIds
-                });
-                
-                console.log(`✅ [ChatRoomConsumer] Chat room ${chatRoomId} created in CMF`);
-            } else {
-                console.warn(`⚠️ [ChatRoomConsumer] Received unknown chat room activity event:`, message);
+            const type = message?.type;
+            const chatRoomId = message?.chatRoomId;
+            if (!chatRoomId) {
+                console.warn(`⚠️ [ChatRoomConsumer] Received chat room event without chatRoomId:`, message);
+                return;
             }
+
+            if (type === "chat-room.kick") {
+                const kick = message as ChatRoomKickEvent;
+                this.webSocketService.kickAliasFromRoom(chatRoomId, kick.alias);
+                return;
+            }
+
+            if (type === "chat-room.created") {
+                const created = message as ChatRoomCreatedEvent;
+                this.webSocketService.createChatRoom(chatRoomId, {
+                    type: created.type,
+                    name: created.name,
+                    participantIds: created.participantIds
+                });
+                return;
+            }
+
+            console.warn(`⚠️ [ChatRoomConsumer] Received unknown chat room activity event:`, message);
         } catch (error) {
             console.error(`❌ [ChatRoomConsumer] Error processing chat room activity event:`, error);
             throw error;
