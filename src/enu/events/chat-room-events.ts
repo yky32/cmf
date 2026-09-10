@@ -33,6 +33,8 @@ export interface ChatRoomInfo {
 export interface ChatRoomMetadata {
     /** Set of currently active participant client IDs */
     participants: Set<string>;
+    /** Read-only observers (admin portal) — receive messages, not in online list */
+    observers: Set<string>;
     /** Chat room information and metadata */
     info: ChatRoomInfo;
 }

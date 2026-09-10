@@ -33,6 +33,10 @@ export enum ClientMessageType {
   SUBSCRIBE_INBOX = "subscribe-inbox",
   /** Stop inbox events on this socket */
   UNSUBSCRIBE_INBOX = "unsubscribe-inbox",
+  /** Admin portal: receive room events without appearing online */
+  OBSERVE_CHAT_ROOM = "observe-chat-room",
+  /** Stop observing a chat room */
+  UNOBSERVE_CHAT_ROOM = "unobserve-chat-room",
 }
 
 /**
@@ -83,6 +87,9 @@ export enum ServerMessageType {
   INBOX_UNSUBSCRIBED = "inbox-unsubscribed",
   /** New message for chat list (no room join required) */
   INBOX_MESSAGE = "inbox-message",
+  /** Admin observe ack */
+  CHAT_ROOM_OBSERVED = "chat-room-observed",
+  CHAT_ROOM_UNOBSERVED = "chat-room-unobserved",
 }
 
 /**
