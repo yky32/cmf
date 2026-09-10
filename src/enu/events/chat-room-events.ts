@@ -43,6 +43,12 @@ export interface ChatRoomMetadata {
  * Event structure received from Spring Boot when a chat room is created.
  * This is the Kafka message format for chat room creation events.
  */
+export interface ChatRoomKickEvent {
+    chatRoomId: string;
+    type: "chat-room.kick";
+    alias: string;
+}
+
 export interface ChatRoomCreatedEvent {
     /** Unique identifier for the chat room */
     chatRoomId: string;
