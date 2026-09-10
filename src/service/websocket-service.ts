@@ -197,6 +197,14 @@ export class WebSocketService {
         this.handleUnsubscribeInbox(clientId);
         break;
 
+      case ClientMessageType.OBSERVE_CHAT_ROOM:
+        this.handleObserveRoom(clientId, message.chatRoomId);
+        break;
+
+      case ClientMessageType.UNOBSERVE_CHAT_ROOM:
+        this.handleUnobserveRoom(clientId, message.chatRoomId);
+        break;
+
       default:
         console.log(`❓ Unknown message type: ${message.type}`);
         const client = this.clients.get(clientId);
@@ -244,12 +252,22 @@ export class WebSocketService {
     }
 
     // Check if client is in the chat room (optimized check)
+    if (this.chatRoomManager.isClientObserver(from, chatRoomId) && !this.chatRoomManager.isClientInRoom(from, chatRoomId)) {
+      const client = this.clients.get(from);
+      if (client) {
+        this.sendToClient(client, {
+          type: ServerMessageType.ERROR,
+          message: "Observers cannot send messages"
+        });
+      }
+      return;
+    }
     if (!this.chatRoomManager.isClientInRoom(from, chatRoomId)) {
       const client = this.clients.get(from);
       if (client) {
-        this.sendToClient(client, { 
-          type: ServerMessageType.ERROR, 
-          message: `You must join chat room ${chatRoomId} before sending messages` 
+        this.sendToClient(client, {
+          type: ServerMessageType.ERROR,
+          message: `You must join chat room ${chatRoomId} before sending messages`
         });
       }
       return;
@@ -451,6 +469,39 @@ export class WebSocketService {
       console.log(`👋 [WebSocketService] Client ${clientId} left chat room ${chatRoomId}`);
   }
 
+  private handleObserveRoom(clientId: string, chatRoomId: string | undefined): void {
+    if (!chatRoomId) {
+      const client = this.clients.get(clientId);
+      if (client) {
+        this.sendToClient(client, { type: ServerMessageType.ERROR, message: "chatRoomId is required" });
+      }
+      return;
+    }
+    this.chatRoomManager.observeChatRoom(clientId, chatRoomId);
+    const client = this.clients.get(clientId);
+    if (client) {
+      this.sendToClient(client, {
+        type: ServerMessageType.CHAT_ROOM_OBSERVED,
+        chatRoomId,
+        message: `Observing chat room ${chatRoomId}`
+      });
+    }
+  }
+
+  private handleUnobserveRoom(clientId: string, chatRoomId: string | undefined): void {
+    if (!chatRoomId) {
+      return;
+    }
+    this.chatRoomManager.unobserveChatRoom(clientId, chatRoomId);
+    const client = this.clients.get(clientId);
+    if (client) {
+      this.sendToClient(client, {
+        type: ServerMessageType.CHAT_ROOM_UNOBSERVED,
+        chatRoomId
+      });
+    }
+  }
+
   kickAliasFromRoom(chatRoomId: string, aliasRaw?: string): void {
     const alias = WebSocketService.canonAlias(aliasRaw);
     if (!chatRoomId || !alias) {
@@ -585,6 +636,8 @@ export class WebSocketService {
    */
   broadcastToChatRoom(chatRoomId: string, message: any, excludeClientId?: string, excludeAliasRaw?: string): void {
     const participants = this.chatRoomManager.getChatRoomParticipants(chatRoomId);
+    const observers = this.chatRoomManager.getChatRoomObservers(chatRoomId);
+    const recipients = new Set<string>([...participants, ...observers]);
     let sentCount = 0;
     const excludeAlias = WebSocketService.canonAlias(excludeAliasRaw);
 
@@ -598,7 +651,7 @@ export class WebSocketService {
       console.log(`   Excluding alias: ${excludeAlias}`);
     }
 
-    for (const clientId of participants) {
+    for (const clientId of recipients) {
       if (excludeClientId && clientId === excludeClientId) {
         continue;
       }

@@ -71,7 +71,8 @@ export class ChatRoomManager {
         const emptyRooms: string[] = [];
         
         for (const [chatRoomKey, roomData] of this.chatRooms.entries()) {
-            if (roomData.participants.size === 0) {
+            const observers = roomData.observers ? roomData.observers.size : 0;
+            if (roomData.participants.size === 0 && observers === 0) {
                 emptyRooms.push(chatRoomKey);
             }
         }
@@ -97,6 +98,7 @@ export class ChatRoomManager {
         if (!this.chatRooms.has(chatRoomKey)) {
             this.chatRooms.set(chatRoomKey, {
                 participants: new Set(),
+                observers: new Set(),
                 info: {
                     chatRoomId,
                     createdAt: Date.now(),
@@ -137,8 +139,58 @@ export class ChatRoomManager {
         }
         this.clientChatRooms.get(clientId)!.add(chatRoomKey);
 
-        console.log(`✅ [ChatRoomManager] Client ${clientId} joined chat room ${chatRoomKey} (${roomData.participants.size} participants)`);
         return true;
+    }
+
+    observeChatRoom(clientId: string, chatRoomId: string): boolean {
+        const chatRoomKey = this.getCachedKey(chatRoomId);
+        let roomData = this.chatRooms.get(chatRoomKey);
+        if (!roomData) {
+            this.createChatRoom(chatRoomId);
+            roomData = this.chatRooms.get(chatRoomKey)!;
+        }
+        if (!roomData.observers) {
+            roomData.observers = new Set();
+        }
+        if (roomData.observers.has(clientId)) {
+            return false;
+        }
+        roomData.observers.add(clientId);
+        if (!this.clientChatRooms.has(clientId)) {
+            this.clientChatRooms.set(clientId, new Set());
+        }
+        this.clientChatRooms.get(clientId)!.add(chatRoomKey);
+        console.log(`👁 [ChatRoomManager] Client ${clientId} observing ${chatRoomKey}`);
+        return true;
+    }
+
+    unobserveChatRoom(clientId: string, chatRoomId: string): boolean {
+        const chatRoomKey = this.getCachedKey(chatRoomId);
+        const roomData = this.chatRooms.get(chatRoomKey);
+        if (!roomData || !roomData.observers || !roomData.observers.has(clientId)) {
+            return false;
+        }
+        roomData.observers.delete(clientId);
+        const clientChatRoomSet = this.clientChatRooms.get(clientId);
+        if (clientChatRoomSet && !roomData.participants.has(clientId)) {
+            clientChatRoomSet.delete(chatRoomKey);
+            if (clientChatRoomSet.size === 0) {
+                this.clientChatRooms.delete(clientId);
+            }
+        }
+        return true;
+    }
+
+    getChatRoomObservers(chatRoomId: string): Set<string> {
+        const chatRoomKey = this.getCachedKey(chatRoomId);
+        const roomData = this.chatRooms.get(chatRoomKey);
+        return roomData && roomData.observers ? new Set(roomData.observers) : new Set();
+    }
+
+    isClientObserver(clientId: string, chatRoomId: string): boolean {
+        const chatRoomKey = this.getCachedKey(chatRoomId);
+        const roomData = this.chatRooms.get(chatRoomKey);
+        return !!(roomData && roomData.observers && roomData.observers.has(clientId));
     }
 
     /**
@@ -232,7 +284,11 @@ export class ChatRoomManager {
             const roomData = this.chatRooms.get(chatRoomKey);
             if (roomData) {
                 roomData.participants.delete(clientId);
-                if (roomData.participants.size === 0) {
+                if (roomData.observers) {
+                    roomData.observers.delete(clientId);
+                }
+                const observers = roomData.observers ? roomData.observers.size : 0;
+                if (roomData.participants.size === 0 && observers === 0) {
                     roomsToCleanup.push(chatRoomKey);
                 }
             }
