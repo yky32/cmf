@@ -508,20 +508,32 @@ export class WebSocketService {
       console.warn(`⚠️ [WebSocketService] kickAliasFromRoom missing chatRoomId or alias`);
       return;
     }
-    this.broadcastToChatRoom(chatRoomId, {
+    const event = {
       type: ServerMessageType.CHAT_ROOM_KICKED,
       chatRoomId,
       alias,
-    });
+    };
     const participants = Array.from(this.chatRoomManager.getChatRoomParticipants(chatRoomId));
-    let n = 0;
-    for (const clientId of participants) {
-      if (this.clientAlias.get(clientId) === alias) {
-        this.handleLeaveRoom(clientId, chatRoomId);
-        n += 1;
+    const kickedIds = participants.filter((id) => this.clientAlias.get(id) === alias);
+
+    for (const clientId of kickedIds) {
+      const client = this.clients.get(clientId);
+      if (client) {
+        this.sendToClient(client, event);
       }
     }
-    console.log(`👢 [WebSocketService] kick alias=${alias} room=${chatRoomId} sockets=${n}`);
+    this.broadcastToChatRoom(chatRoomId, event, undefined, alias);
+
+    if (kickedIds.length === 0) {
+      console.log(`👢 [WebSocketService] kick alias=${alias} room=${chatRoomId} sockets=0 (event broadcast, no leave)`);
+      return;
+    }
+    setTimeout(() => {
+      for (const clientId of kickedIds) {
+        this.handleLeaveRoom(clientId, chatRoomId);
+      }
+    }, 300);
+    console.log(`👢 [WebSocketService] kick alias=${alias} room=${chatRoomId} sockets=${kickedIds.length} leave in 300ms`);
   }
 
   /**
