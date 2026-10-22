@@ -15,6 +15,10 @@
     "docker:test": "docker build -t cmf:test . && docker run --rm -p 8088:8088 cmf:test"
   },
   "dependencies": {
+    "@opentelemetry/api-logs": "^0.223.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.300.0",
+    "@opentelemetry/resources": "^3.0.0",
+    "@opentelemetry/sdk-logs": "^3.0.0",
     "kafkajs": "^2.2.4",
     "ws": "^8.18.0"
   },

@@ -1,3 +1,4 @@
+import "./otel-logs";
 import {KafkaService} from "./service/kafka-service";
 import {BaseKafkaManager} from "./manager/base-kafka-manager";
 import {WebSocketService} from "./service/websocket-service";
